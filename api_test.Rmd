@@ -1,0 +1,69 @@
+---
+title: "API Test"
+author: "Bobby Nelson"
+date: "2/24/2022"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(htmltools)
+library(httr)
+library(xml2)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# API call
+
+```{r}
+# api key
+key <- readChar("BusTracker/api_key.txt", file.info("BusTracker/api_key.txt")$size)
+
+# base url for the api calls
+base_url <- "http://realtime.portauthority.org/bustime/api/v3/getvehicles"
+```
+
+```{r}
+# function to query vehicle data from api
+# following from: https://urbandatapalette.com/post/2021-03-xml-dataframe-r/
+getVehicleData <- function() {
+    url <- paste0(base_url, "?key=", key, "&rt=2")
+    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    content <- content(request, "text")
+    
+    # parse xml
+    xml <- as_list(read_xml(content))
+    
+    bustime_df <- as_tibble(xml) %>%
+      unnest_wider(`bustime-response`) %>%
+      unnest(cols = names(.)) %>%
+      readr::type_convert() 
+}
+
+c <- getVehicleData()
+```
+
+```{r}
+url <- paste0(base_url, "?key=", key, "&rt=2")
+request <- RETRY("GET", URLencode(url), repeated=TRUE)
+content <- content(request, "text")
+
+# parse xml
+xml <- as_list(read_xml(content))
+```
+
+```{r}
+bustime <- as_tibble(xml) %>%
+  unnest_wider(`bustime-response`)
+```
+
+```{r}
+df <- bustime %>%
+  unnest(cols = names(.)) %>%
+  readr::type_convert() 
+```
+
