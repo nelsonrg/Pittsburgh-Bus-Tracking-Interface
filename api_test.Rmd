@@ -12,6 +12,8 @@ library(httr)
 library(xml2)
 library(leaflet)
 library(sf)
+library(sfheaders)
+library(jsonlite)
 ```
 
 
@@ -101,4 +103,72 @@ stop_spdf <- stop_spdf %>%
 ```{r}
 st_write(stop_spdf, "BusTracker/data/bus_stops.shp")
 ```
+
+# Pattern Data
+
+```{r}
+# get route patterns
+getPatternData <- function(route) {
+  # add key to request
+  url <- paste0(base_url, "/getpatterns?key=", key)
+  
+  # request patterns for the route
+  url <- paste0(url, "&rt=", route)
+  url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+  
+
+  request <- RETRY("GET", URLencode(url), repeated=TRUE)
+  content <- content(request, "text")
+  results <- fromJSON(content)
+  
+  return(results$`bustime-response`$ptr$pt[[1]])
+}
+```
+
+```{r}
+url <- paste0(base_url, "/getpatterns?key=", key)
+    
+# request patterns for the route
+url <- paste0(url, "&rt=", "15")
+url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+```
+
+```{r}
+request <- RETRY("GET", URLencode(url), repeated=TRUE)
+content <- content(request, "text")
+results <- fromJSON(content)
+```
+
+```{r}
+p1 <- results$`bustime-response`$ptr$pt[[1]]
+p2 <- results$`bustime-response`$ptr$pt[[2]]
+```
+
+```{r}
+polygon <- p1 %>%
+  st_as_sf(coords=c("lon", "lat")) %>%
+  st_convex_hull()
+
+ggplot(polygon) + 
+  geom_sf()
+```
+
+```{r}
+p3 <- rbind(p1, p2)
+```
+
+
+```{r}
+leaflet() %>%
+  addProviderTiles("OpenStreetMap.HOT") %>%
+  setView(-79.9959, 40.4406, 10) %>%
+  addLayersControl(overlayGroups=c("Stops", "Buses", "Routes")) %>%
+  addPolylines(data=getPatternData("2"),
+               group="Routes",
+               fill=FALSE,
+               color="green",
+               lat=~lat,
+               lng=~lon)
+```
+
 

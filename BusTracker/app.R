@@ -3,6 +3,8 @@ library(tidyverse)
 library(htmltools)
 library(httr)
 library(xml2)
+library(jsonlite)
+library(leaflet)
 
 # API call setup and definitions
 
@@ -41,7 +43,7 @@ getBusData <- function(value, type) {
         unnest_wider(`bustime-response`) %>%
         unnest(cols = names(.)) %>%
         readr::type_convert() %>%
-        filter(vid != "NULL")
+        if ("vid" %in% names(.)) filter(., !is.null(vid)) else .
 }
 
 # get the route information when the app launches
@@ -69,7 +71,24 @@ color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue',
                 'purple', 'darkpurple', 'cadetblue')
 
 # get bus stop info (from static file to avoid excessive API calls)
-bus.stop.df <- st_read("data/bus_stops.shp")
+#bus.stop.df <- st_read("data/bus_stops.shp")
+
+# get route patterns
+getPatternData <- function(route) {
+    # add key to request
+    url <- paste0(base_url, "/getpatterns?key=", key)
+    
+    # request patterns for the route
+    url <- paste0(url, "&rt=", route)
+    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+    
+    
+    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    content <- content(request, "text")
+    results <- fromJSON(content)
+    
+    return(results$`bustime-response`$ptr$pt[[1]])
+}
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
@@ -87,7 +106,7 @@ ui <- navbarPage(
                                     choices=unique(route.data$rtdd),
                                     selected=unique(route.data$rtdd)[1],
                                     multiple=TRUE,
-                                    options =list(maxItems=9))
+                                    options=list(maxItems=9))
                  ),
              # map
                  mainPanel(
@@ -121,18 +140,70 @@ server <- function(input, output) {
     # raw data table for display
     output$table <- DT::renderDataTable(bus.data())
     
+    # get pattern data for routes
+    pattern.data <- reactive({
+        req(input$route.select)
+        route <- input$route.select[1]
+        pattern <- getPatternData(route)
+        pattern$rt <- route
+        
+        leftover.routes <- input$route.select[-1]
+        
+        for (route in leftover.routes) {
+            next.pattern <- getPatternData(route)
+            next.pattern$rt <- route
+            
+            pattern <- rbind(pattern, next.pattern)    
+        }
+        
+        output$table <- DT::renderDataTable(pattern)
+        
+        
+        return(pattern)
+    })
+    
     # leaflet map base + bus stops
     output$leaflet <- renderLeaflet({
-        leaflet(bus.stop.df) %>%
+        leaflet() %>%
             addProviderTiles("OpenStreetMap.HOT") %>%
             setView(-79.9959, 40.4406, 10) %>%
-            addLayersControl(overlayGroups=c("Stops", "Buses")) %>%
-            # icon from: https://icon-library.com/icon/bus-stop-icon-4.html
-            addMarkers(#icon=makeIcon("data/bus-stop-icon-4.jpg", 18, 18),
-                       lng=~Longitude,
-                       lat=~Latitude,
-                       group="Stops")
+            addLayersControl(overlayGroups=c("Stops", "Buses", "Routes"))
     })
+    
+    # update route patterns
+    # observe({
+    #     # get all routes in data for colors
+    #     route.table <- unique(pattern.data()$rt)
+    #     color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
+    #     
+    #     # convert lat and lon for plotting
+    #     plot.data <- pattern.data() %>%
+    #         mutate(lat = as.numeric(lat),
+    #                lon = as.numeric(lon)) %>%
+    #         inner_join(color.df, by="rt")
+    #     
+    #     # clear old routes
+    #     leafletProxy("leaflet", plot.data) %>%
+    #         clearGroup(group="Routes") %>%
+    #         addPolylines(#data=plot.data,
+    #                      group="Routes",
+    #                      fill=FALSE,
+    #                      color=~color,
+    #                      lat=~lat,
+    #                      lng=~lon)
+    #     
+    #     # add new routes
+    #     # for (route in route.table) {
+    #     #     data.i <- data[data[[rt]]==route,]
+    #     #     leafletProxy("leaflet") %>%
+    #     #         addPolylines(data.i,
+    #     #                      group="Routes",
+    #     #                      fill=FALSE,
+    #     #                      color=~color,
+    #     #                      lat=~lat,
+    #     #                      lng=~lon)
+    #     # }
+    # })
     
     # bus coordinate view
     # only update when bus data updates
@@ -147,7 +218,7 @@ server <- function(input, output) {
             color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
             
             # convert lat and lon for plotting
-            data <- bus.data() %>%
+            plot.data <- bus.data() %>%
                 mutate(lat = as.numeric(lat),
                        lon = as.numeric(lon)) %>%
                 inner_join(color.df, by="rt")
@@ -162,7 +233,7 @@ server <- function(input, output) {
             )
             
             # clear old markers and add new ones
-            leafletProxy("leaflet", data=data) %>%
+            leafletProxy("leaflet", data=plot.data) %>%
                 clearGroup(group="Buses") %>%
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
