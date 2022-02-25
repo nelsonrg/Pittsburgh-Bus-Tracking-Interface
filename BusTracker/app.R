@@ -79,12 +79,12 @@ ui <- navbarPage(
              # input
              sidebarLayout(
                  sidebarPanel(
-                     selectInput(inputId="route.select",
-                                 label="Route Number",
-                                 choices=unique(route.data$rtdd),
-                                 selected=unique(route.data$rtdd)[1],
-                                 selectize=TRUE,
-                                 multiple=TRUE)
+                     selectizeInput(inputId="route.select",
+                                    label="Route Number",
+                                    choices=unique(route.data$rtdd),
+                                    selected=unique(route.data$rtdd)[1],
+                                    multiple=TRUE,
+                                    options =list(maxItems=9))
                  ),
              # map
                  mainPanel(
@@ -151,8 +151,6 @@ server <- function(input, output) {
                 library="fa",
                 markerColor=data$color
             )
-            
-            output$table <- DT::renderDataTable(data)
             
             # clear old markers and add new ones
             leafletProxy("leaflet", data=data) %>%
