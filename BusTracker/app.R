@@ -15,14 +15,19 @@ base_url <- "http://realtime.portauthority.org/bustime/api/v3"
 # function to query bus data from api
 # following from: https://urbandatapalette.com/post/2021-03-xml-dataframe-r/
 getBusData <- function(value, type) {
+    # don't send request if more than 10 values because of api limit
+    if (length(value) > 10) {
+        stop("Error, too many values to search.")
+    }
+    
     # add key to request
     url <- paste0(base_url, "/getvehicles?key=", key)
     
     # add either route or vehicle id to request
     if (type == "route") {
-        url <- paste0(url, "&rt=", value)
+        url <- paste0(url, "&rt=", paste0(value, collapse=","))
     } else if (type == "vid") {
-        url <- paste0(url, "&vid=", value)
+        url <- paste0(url, "&vid=", paste0(value, collapse=","))
     } else {
         stop("Error, request type not recognized.")
     }
@@ -35,7 +40,8 @@ getBusData <- function(value, type) {
     bustime_df <- as_tibble(xml) %>%
         unnest_wider(`bustime-response`) %>%
         unnest(cols = names(.)) %>%
-        readr::type_convert() 
+        readr::type_convert() %>%
+        filter(vid != "NULL")
 }
 
 # get the route information when the app launches
@@ -58,10 +64,9 @@ getRouteData <- function() {
 }
 route.data <- getRouteData()
 
-# define custom icons for the map
-icons <- awesomeIconList(
-    bus.simple = makeAwesomeIcon(icon="bus-simple", library="fa")
-)
+# color info
+color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
+                'purple', 'darkpurple', 'cadetblue')
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
@@ -77,7 +82,9 @@ ui <- navbarPage(
                      selectInput(inputId="route.select",
                                  label="Route Number",
                                  choices=unique(route.data$rtdd),
-                                 selected=unique(route.data$rtdd)[1])
+                                 selected=unique(route.data$rtdd)[1],
+                                 selectize=TRUE,
+                                 multiple=TRUE)
                  ),
              # map
                  mainPanel(
@@ -126,18 +133,33 @@ server <- function(input, output) {
             leafletProxy("leaflet") %>%
                 clearGroup(group="busPosition")
         } else {
+            # get all routes in data for colors
+            route.table <- unique(bus.data()$rt)
+            color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
+            
             # convert lat and lon for plotting
             data <- bus.data() %>%
                 mutate(lat = as.numeric(lat),
-                       lon = as.numeric(lon))
+                       lon = as.numeric(lon)) %>%
+                inner_join(color.df, by="rt")
             
             
+            # define custom icons for the map
+            icons <- awesomeIcons(
+                icon="bus", 
+                iconColor="black",
+                library="fa",
+                markerColor=data$color
+            )
             
+            output$table <- DT::renderDataTable(data)
+            
+            # clear old markers and add new ones
             leafletProxy("leaflet", data=data) %>%
                 clearGroup(group="busPosition") %>%
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
-                                  icon=makeAwesomeIcon(icon="bus", library="fa"),
+                                  icon=icons,
                                   popup=~vid,
                                   group="busPosition",
                                   layerId=~vid)

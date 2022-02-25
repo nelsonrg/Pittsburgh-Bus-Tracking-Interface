@@ -25,70 +25,94 @@ knitr::opts_chunk$set(echo = TRUE)
 key <- readChar("BusTracker/api_key.txt", file.info("BusTracker/api_key.txt")$size)
 
 # base url for the api calls
-base_url <- "http://realtime.portauthority.org/bustime/api/v3/getvehicles"
+base_url <- "http://realtime.portauthority.org/bustime/api/v3"
 ```
 
 ```{r}
 # function to query vehicle data from api
 # following from: https://urbandatapalette.com/post/2021-03-xml-dataframe-r/
-getVehicleData <- function() {
-    url <- paste0(base_url, "?key=", key, "&rt=2")
+getBusData <- function(value, type) {
+    # don't send request if more than 10 values because of api limit
+    if (length(value) > 10) {
+        stop("Error, too many values to search.")
+    }
+    
+    # add key to request
+    url <- paste0(base_url, "/getvehicles?key=", key)
+    
+    # add either route or vehicle id to request
+    if (type == "route") {
+        url <- paste0(url, "&rt=", paste0(value, collapse=","))
+    } else if (type == "vid") {
+        url <- paste0(url, "&vid=", paste0(value, collapse=","))
+    } else {
+        stop("Error, request type not recognized.")
+    }
     request <- RETRY("GET", URLencode(url), repeated=TRUE)
     content <- content(request, "text")
     
     # parse xml
     xml <- as_list(read_xml(content))
     
-    # create a tibble, each row is a specific bus
     bustime_df <- as_tibble(xml) %>%
-      unnest_wider(`bustime-response`) %>%
-      unnest(cols = names(.)) %>%
-      readr::type_convert() 
+        unnest_wider(`bustime-response`) %>%
+        unnest(cols = names(.)) %>%
+        readr::type_convert() 
 }
 
-c <- getVehicleData()
+c <- getBusData(c("1", "4"), type="route")
 ```
 
 ```{r}
-url <- paste0(base_url, "?key=", key, "&rt=2")
-request <- RETRY("GET", URLencode(url), repeated=TRUE)
-content <- content(request, "text")
-
-# parse xml
-xml <- as_list(read_xml(content))
+getRouteData <- function() {
+    # add key to request
+    url <- paste0(base_url, "/getroutes?key=", key)
+    
+    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    content <- content(request, "text")
+    
+    # parse xml
+    xml <- as_list(read_xml(content))
+    
+    bustime_df <- as_tibble(xml) %>%
+        unnest_wider(`bustime-response`) %>%
+        unnest(cols = names(.)) %>%
+        readr::type_convert() %>%
+        # remove non-bus info
+        filter(rtpidatafeed == "Port Authority Bus")
+}
+route.data <- getRouteData()
 ```
 
 ```{r}
-bustime <- as_tibble(xml) %>%
-  unnest_wider(`bustime-response`)
-```
+color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
+                'purple', 'darkpurple', 'cadetblue')
+rt <- unique(c$rt)
+color.df <- tibble(rt, color.list[1:length(rt)])
 
-```{r}
-df <- bustime %>%
-  unnest(cols = names(.)) %>%
-  readr::type_convert() %>%
-  mutate(lon = as.numeric(lon),
-         lat = as.numeric(lat))
-```
+# convert lat and lon for plotting
+data <- c %>%
+    mutate(lat = as.numeric(lat),
+           lon = as.numeric(lon)) %>%
+    inner_join(color.df, by="rt")
 
-```{r}
-icons <- awesomeIconList(
-  bus.simple = makeAwesomeIcon(icon="bus-simple", library="fa")
+
+# define custom icons for the map
+icons <- awesomeIcons(
+    icon="bus", 
+    iconColor="black",
+    library="fa",
+    markerColor=data$color.list
 )
 
-leaflet(data=df) %>%
-  addProviderTiles("OpenStreetMap.HOT") %>%
-  setView(-79.9959, 40.4406, 10) %>%
-  addAwesomeMarkers(lng=~lon,
-                    lat=~lat,
-                    icon=makeAwesomeIcon(icon="bus", library="fa"),
-                    popup=~vid,
-                    group="busPosition",
-                    layerId=~vid)
+# clear old markers and add new ones
+leafletProxy("leaflet", data=data) %>%
+    clearGroup(group="busPosition") %>%
+    addAwesomeMarkers(lng=~lon,
+                      lat=~lat,
+                      icon=icons,
+                      popup=~vid,
+                      group="busPosition",
+                      layerId=~vid)
 ```
-
-```{r}
-icons[1]
-```
-
 
