@@ -1,12 +1,14 @@
 library(shiny)
+library(shinyWidgets)
+library(shinydashboard)
 library(tidyverse)
 library(htmltools)
 library(httr)
 library(xml2)
 library(jsonlite)
 library(leaflet)
-library(shinyWidgets)
-library(shinydashboard)
+library(plotly)
+
 
 # API call setup and definitions
 
@@ -92,6 +94,23 @@ getPatternData <- function(route) {
     return(results$`bustime-response`$ptr$pt[[1]])
 }
 
+# get bus predictions
+getPredictionData <- function(vid) {
+    # add key to request
+    url <- paste0(base_url, "/getpredictions?key=", key)
+    
+    # request patterns for the route
+    url <- paste0(url, "&vid=", vid)
+    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+    
+    
+    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    content <- content(request, "text")
+    results <- fromJSON(content)
+    
+    return(results$`bustime-response`$prd)
+}
+
 # Define UI for application that draws a histogram
 ui <- navbarPage(
     # Application title
@@ -129,7 +148,9 @@ ui <- navbarPage(
                         ),
                      fluidRow(
                              box(title="Bus Information",
-                                 width=6, uiOutput("display.bus.click")))
+                                 width=6, uiOutput("display.bus.click")),
+                             box(title="Predicted Arrivals",
+                                 width=6, plotlyOutput("prediction.plot")))
                     )
                  )
              ),
@@ -255,12 +276,13 @@ server <- function(input, output) {
                                   group="Buses",
                                   layerId=~vid) %>%
                 addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
-                          title="Route", layerId="legend")
+                          title="Route", layerId="legend", opacity=1)
         }
     })
     
     # show bus info when selected
     bus.click <- reactiveVal(NULL)
+    bus.pred <- reactiveVal(NULL)
     
     # observe clicks
     # reference: http://rstudio.github.io/leaflet/shiny.html#inputsevents
@@ -271,6 +293,7 @@ server <- function(input, output) {
         }
         
         bus.click(user.click)
+        bus.pred(getPredictionData(user.click$id))
     })
     
     # format the bus display graphic
@@ -291,6 +314,45 @@ server <- function(input, output) {
             h3(paste0("Status: ", display.data$status)),
             h3(paste0("Current speed: ", display.data$spd, " mph"))
         )
+    })
+    
+    # makes a prediction plot for bus arrivals
+    output$prediction.plot <- renderPlotly({
+        if (is.null(bus.click())) {
+            return()
+        }
+        
+        # https://stackoverflow.com/a/43626186
+        c_trans <- function(a, b, breaks = b$breaks, format = b$format) {
+            a <- as.trans(a)
+            b <- as.trans(b)
+            
+            name <- paste(a$name, b$name, sep = "-")
+            
+            trans <- function(x) a$trans(b$trans(x))
+            inv <- function(x) b$inverse(a$inverse(x))
+            
+            trans_new(name, trans, inverse = inv, breaks = breaks, format=format)
+        }
+        rev_date <- c_trans("reverse", "time")
+        
+        
+        plot <- bus.pred() %>%
+            mutate(stpnm = as.factor(stpnm),
+                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M")) %>%
+            head(5) %>%
+            ggplot(aes(y=prdtm,
+                       x=vid)) +
+            geom_point(aes(color=stpnm), size=2, shape="square") +
+            geom_text(aes(label=stpnm), position="dodge", size=3, hjust=0) +
+            scale_y_continuous(trans = rev_date) +
+            theme_minimal() +
+            theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
+                  axis.ticks.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  legend.position="none") +
+            ylab("Arrival Time") +
+            xlab("")
     })
 }
 
