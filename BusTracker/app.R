@@ -112,12 +112,15 @@ ui <- navbarPage(
                  ),
              # map
                  mainPanel(
-                     shinyjs::useShinyjs(),
-                     tags$style(type = "text/css", 
-                                ".leaflet {height: calc(100vh - 90px) !important;}
-                                body {background-color: #D4EFDF;}"),
-                     # Map Output
-                     leafletOutput("leaflet")
+                     fluidRow(
+                         width=8,
+                         shinyjs::useShinyjs(),
+                         tags$style(type = "text/css", 
+                                    ".leaflet {height: calc(50vh - 90px) !important;}
+                            body {background-color: #D4EFDF;}"),
+                         # Map Output
+                         leafletOutput("leaflet", height=500)
+                        )
                     )
                  )
              ),
@@ -185,12 +188,6 @@ server <- function(input, output) {
         # clear old routes
         leafletProxy("leaflet") %>%
             clearGroup(group="Routes") 
-            # addPolylines(data=plot.data,
-            #              group="Routes",
-            #              fill=FALSE,
-            #              color=~color,
-            #              lat=~lat,
-            #              lng=~lon)
 
         # add new routes
         for (route in route.table) {
@@ -198,7 +195,6 @@ server <- function(input, output) {
             leafletProxy("leaflet") %>%
                 addPolylines(data=data.i,
                              group="Routes",
-                             fill=FALSE,
                              color=~color,
                              lat=~lat,
                              lng=~lon)
