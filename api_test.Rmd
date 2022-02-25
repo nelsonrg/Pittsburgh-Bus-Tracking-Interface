@@ -11,6 +11,7 @@ library(htmltools)
 library(httr)
 library(xml2)
 library(leaflet)
+library(sf)
 ```
 
 
@@ -84,35 +85,20 @@ getRouteData <- function() {
 route.data <- getRouteData()
 ```
 
+# Generate static data
+
+## Generate Bus Stop List
+
 ```{r}
-color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
-                'purple', 'darkpurple', 'cadetblue')
-rt <- unique(c$rt)
-color.df <- tibble(rt, color.list[1:length(rt)])
+stop_spdf <- st_read("../PAAC_Stops_1909.shp")
+```
 
-# convert lat and lon for plotting
-data <- c %>%
-    mutate(lat = as.numeric(lat),
-           lon = as.numeric(lon)) %>%
-    inner_join(color.df, by="rt")
+```{r}
+stop_spdf <- stop_spdf %>%
+  filter(Mode == "Bus")
+```
 
-
-# define custom icons for the map
-icons <- awesomeIcons(
-    icon="bus", 
-    iconColor="black",
-    library="fa",
-    markerColor=data$color.list
-)
-
-# clear old markers and add new ones
-leafletProxy("leaflet", data=data) %>%
-    clearGroup(group="busPosition") %>%
-    addAwesomeMarkers(lng=~lon,
-                      lat=~lat,
-                      icon=icons,
-                      popup=~vid,
-                      group="busPosition",
-                      layerId=~vid)
+```{r}
+st_write(stop_spdf, "BusTracker/data/bus_stops.shp")
 ```
 

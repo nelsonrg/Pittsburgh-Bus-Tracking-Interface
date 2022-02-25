@@ -68,6 +68,9 @@ route.data <- getRouteData()
 color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
                 'purple', 'darkpurple', 'cadetblue')
 
+# get bus stop info (from static file to avoid excessive API calls)
+bus.stop.df <- st_read("data/bus_stops.shp")
+
 # Define UI for application that draws a histogram
 ui <- navbarPage(
 
@@ -118,11 +121,17 @@ server <- function(input, output) {
     # raw data table for display
     output$table <- DT::renderDataTable(bus.data())
     
-    # leaflet map base
+    # leaflet map base + bus stops
     output$leaflet <- renderLeaflet({
-        leaflet() %>%
+        leaflet(bus.stop.df) %>%
             addProviderTiles("OpenStreetMap.HOT") %>%
-            setView(-79.9959, 40.4406, 10)
+            setView(-79.9959, 40.4406, 10) %>%
+            addLayersControl(overlayGroups=c("Stops", "Buses")) %>%
+            # icon from: https://icon-library.com/icon/bus-stop-icon-4.html
+            addMarkers(#icon=makeIcon("data/bus-stop-icon-4.jpg", 18, 18),
+                       lng=~Longitude,
+                       lat=~Latitude,
+                       group="Stops")
     })
     
     # bus coordinate view
@@ -154,12 +163,12 @@ server <- function(input, output) {
             
             # clear old markers and add new ones
             leafletProxy("leaflet", data=data) %>%
-                clearGroup(group="busPosition") %>%
+                clearGroup(group="Buses") %>%
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
                                   icon=icons,
                                   popup=~vid,
-                                  group="busPosition",
+                                  group="Buses",
                                   layerId=~vid)
         }
     })
