@@ -163,7 +163,7 @@ leaflet() %>%
   addProviderTiles("OpenStreetMap.HOT") %>%
   setView(-79.9959, 40.4406, 10) %>%
   addLayersControl(overlayGroups=c("Stops", "Buses", "Routes")) %>%
-  addPolylines(data=getPatternData("2"),
+  addPolylines(data=getPatternData("1"),
                group="Routes",
                fill=FALSE,
                color="green",

@@ -74,20 +74,22 @@ color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue',
 #bus.stop.df <- st_read("data/bus_stops.shp")
 
 # get route patterns
-getPatternData <- function(route) {
+getRouteData <- function() {
     # add key to request
-    url <- paste0(base_url, "/getpatterns?key=", key)
-    
-    # request patterns for the route
-    url <- paste0(url, "&rt=", route)
-    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
-    
+    url <- paste0(base_url, "/getroutes?key=", key)
     
     request <- RETRY("GET", URLencode(url), repeated=TRUE)
     content <- content(request, "text")
-    results <- fromJSON(content)
     
-    return(results$`bustime-response`$ptr$pt[[1]])
+    # parse xml
+    xml <- as_list(read_xml(content))
+    
+    bustime_df <- as_tibble(xml) %>%
+        unnest_wider(`bustime-response`) %>%
+        unnest(cols = names(.)) %>%
+        readr::type_convert() %>%
+        # remove non-bus info
+        filter(rtpidatafeed == "Port Authority Bus")
 }
 
 # Define UI for application that draws a histogram
@@ -152,8 +154,8 @@ server <- function(input, output) {
         for (route in leftover.routes) {
             next.pattern <- getPatternData(route)
             next.pattern$rt <- route
-            
-            pattern <- rbind(pattern, next.pattern)    
+
+            pattern <- rbind(pattern, next.pattern)
         }
         
         output$table <- DT::renderDataTable(pattern)
@@ -171,39 +173,37 @@ server <- function(input, output) {
     })
     
     # update route patterns
-    # observe({
-    #     # get all routes in data for colors
-    #     route.table <- unique(pattern.data()$rt)
-    #     color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
-    #     
-    #     # convert lat and lon for plotting
-    #     plot.data <- pattern.data() %>%
-    #         mutate(lat = as.numeric(lat),
-    #                lon = as.numeric(lon)) %>%
-    #         inner_join(color.df, by="rt")
-    #     
-    #     # clear old routes
-    #     leafletProxy("leaflet", plot.data) %>%
-    #         clearGroup(group="Routes") %>%
-    #         addPolylines(#data=plot.data,
-    #                      group="Routes",
-    #                      fill=FALSE,
-    #                      color=~color,
-    #                      lat=~lat,
-    #                      lng=~lon)
-    #     
-    #     # add new routes
-    #     # for (route in route.table) {
-    #     #     data.i <- data[data[[rt]]==route,]
-    #     #     leafletProxy("leaflet") %>%
-    #     #         addPolylines(data.i,
-    #     #                      group="Routes",
-    #     #                      fill=FALSE,
-    #     #                      color=~color,
-    #     #                      lat=~lat,
-    #     #                      lng=~lon)
-    #     # }
-    # })
+    observe({
+        # get all routes in data for colors
+        route.table <- unique(pattern.data()$rt)
+        color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
+
+        # convert lat and lon for plotting
+        plot.data <- pattern.data() %>%
+            inner_join(color.df, by="rt")
+
+        # clear old routes
+        leafletProxy("leaflet") %>%
+            clearGroup(group="Routes") 
+            # addPolylines(data=plot.data,
+            #              group="Routes",
+            #              fill=FALSE,
+            #              color=~color,
+            #              lat=~lat,
+            #              lng=~lon)
+
+        # add new routes
+        for (route in route.table) {
+            data.i <- filter(plot.data, rt == route)
+            leafletProxy("leaflet") %>%
+                addPolylines(data=data.i,
+                             group="Routes",
+                             fill=FALSE,
+                             color=~color,
+                             lat=~lat,
+                             lng=~lon)
+        }
+    })
     
     # bus coordinate view
     # only update when bus data updates
@@ -229,7 +229,7 @@ server <- function(input, output) {
                 icon="bus", 
                 iconColor="black",
                 library="fa",
-                markerColor=data$color
+                markerColor=plot.data$color
             )
             
             # clear old markers and add new ones
