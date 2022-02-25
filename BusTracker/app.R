@@ -5,6 +5,8 @@ library(httr)
 library(xml2)
 library(jsonlite)
 library(leaflet)
+library(shinyWidgets)
+library(shinydashboard)
 
 # API call setup and definitions
 
@@ -74,35 +76,39 @@ color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue',
 #bus.stop.df <- st_read("data/bus_stops.shp")
 
 # get route patterns
-getRouteData <- function() {
+getPatternData <- function(route) {
     # add key to request
-    url <- paste0(base_url, "/getroutes?key=", key)
+    url <- paste0(base_url, "/getpatterns?key=", key)
+    
+    # request patterns for the route
+    url <- paste0(url, "&rt=", route)
+    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+    
     
     request <- RETRY("GET", URLencode(url), repeated=TRUE)
     content <- content(request, "text")
+    results <- fromJSON(content)
     
-    # parse xml
-    xml <- as_list(read_xml(content))
-    
-    bustime_df <- as_tibble(xml) %>%
-        unnest_wider(`bustime-response`) %>%
-        unnest(cols = names(.)) %>%
-        readr::type_convert() %>%
-        # remove non-bus info
-        filter(rtpidatafeed == "Port Authority Bus")
+    return(results$`bustime-response`$ptr$pt[[1]])
 }
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
-
     # Application title
     "Pittsburgh Bus Tracker",
+    
+    # bring in some nice shiny dashboard elements like box
+    # https://stackoverflow.com/a/59527927
+    header = tagList(
+        useShinydashboard()
+    ),
+    
     
     # bus map
     tabPanel("Live Map",
              # input
              sidebarLayout(
-                 sidebarPanel(
+                 sidebarPanel(id="sidebar",
                      selectizeInput(inputId="route.select",
                                     label="Route Number",
                                     choices=unique(route.data$rtdd),
@@ -111,7 +117,7 @@ ui <- navbarPage(
                                     options=list(maxItems=9))
                  ),
              # map
-                 mainPanel(
+                 mainPanel(id="mainPanel",
                      fluidRow(
                          width=8,
                          shinyjs::useShinyjs(),
@@ -120,7 +126,10 @@ ui <- navbarPage(
                             body {background-color: #D4EFDF;}"),
                          # Map Output
                          leafletOutput("leaflet", height=500)
-                        )
+                        ),
+                     fluidRow(
+                             box(title="Bus Information",
+                                 width=6, uiOutput("display.bus.click")))
                     )
                  )
              ),
@@ -239,6 +248,41 @@ server <- function(input, output) {
                 addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
                           title="Route", layerId="legend")
         }
+    })
+    
+    
+    # show bus info when selected
+    bus.click <- reactiveVal(NULL)
+    
+    # observe clicks
+    # reference: http://rstudio.github.io/leaflet/shiny.html#inputsevents
+    observeEvent(input$leaflet_marker_click, {
+        event <- input$leaflet_marker_click
+        if (is.null(event)) {
+            return()
+        }
+        
+        bus.click(event)
+    })
+    
+    # format the bus display graphic
+    output$display.bus.click <- renderUI({
+        if (is.null(bus.click())) {
+            return()
+        }
+        display.data <- bus.data() %>%
+            filter(vid == bus.click()$id) %>%
+            mutate(status = ifelse(dly == "false",
+                                   "On-Time",
+                                   "Delayed"))
+        
+        tagList(
+            h2(paste0("Route ", display.data$rt)),
+            h3(paste0("Bus ID: ", display.data$vid)),
+            h3(paste0("Destination: ", display.data$des)),
+            h3(paste0("Status: ", display.data$status)),
+            h3(paste0("Current speed: ", display.data$spd, " mph"))
+        )
     })
 }
 
