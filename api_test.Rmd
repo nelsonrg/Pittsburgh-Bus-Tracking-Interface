@@ -10,6 +10,7 @@ library(tidyverse)
 library(htmltools)
 library(httr)
 library(xml2)
+library(leaflet)
 ```
 
 
@@ -38,6 +39,7 @@ getVehicleData <- function() {
     # parse xml
     xml <- as_list(read_xml(content))
     
+    # create a tibble, each row is a specific bus
     bustime_df <- as_tibble(xml) %>%
       unnest_wider(`bustime-response`) %>%
       unnest(cols = names(.)) %>%
@@ -64,6 +66,29 @@ bustime <- as_tibble(xml) %>%
 ```{r}
 df <- bustime %>%
   unnest(cols = names(.)) %>%
-  readr::type_convert() 
+  readr::type_convert() %>%
+  mutate(lon = as.numeric(lon),
+         lat = as.numeric(lat))
 ```
+
+```{r}
+icons <- awesomeIconList(
+  bus.simple = makeAwesomeIcon(icon="bus-simple", library="fa")
+)
+
+leaflet(data=df) %>%
+  addProviderTiles("OpenStreetMap.HOT") %>%
+  setView(-79.9959, 40.4406, 10) %>%
+  addAwesomeMarkers(lng=~lon,
+                    lat=~lat,
+                    icon=makeAwesomeIcon(icon="bus", library="fa"),
+                    popup=~vid,
+                    group="busPosition",
+                    layerId=~vid)
+```
+
+```{r}
+icons[1]
+```
+
 
