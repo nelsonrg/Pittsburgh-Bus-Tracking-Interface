@@ -230,13 +230,16 @@ server <- function(input, output) {
             
             # clear old markers and add new ones
             leafletProxy("leaflet", data=plot.data) %>%
+                removeControl(layerId="legend") %>%
                 clearGroup(group="Buses") %>%
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
                                   icon=icons,
                                   popup=~vid,
                                   group="Buses",
-                                  layerId=~vid)
+                                  layerId=~vid) %>%
+                addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
+                          title="Route", layerId="legend")
         }
     })
 }

@@ -63,7 +63,7 @@ getBusData <- function(value, type) {
         readr::type_convert() 
 }
 
-c <- getBusData(c("1", "4"), type="route")
+c <- getBusData(c("1", "11"), type="route")
 ```
 
 ```{r}
