@@ -43,7 +43,7 @@ getBusData <- function(value, type) {
         unnest_wider(`bustime-response`) %>%
         unnest(cols = names(.)) %>%
         readr::type_convert() %>%
-        if ("vid" %in% names(.)) filter(., !is.null(vid)) else .
+        if ("msg" %in% names(.)) filter(., msg != "No data found for parameter") else .
 }
 
 # get the route information when the app launches
@@ -160,8 +160,6 @@ server <- function(input, output) {
 
             pattern <- rbind(pattern, next.pattern)
         }
-        
-        output$table <- DT::renderDataTable(pattern)
         
         
         return(pattern)
