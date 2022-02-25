@@ -123,7 +123,7 @@ ui <- navbarPage(
                          shinyjs::useShinyjs(),
                          tags$style(type = "text/css", 
                                     ".leaflet {height: calc(50vh - 90px) !important;}
-                            body {background-color: #D4EFDF;}"),
+                            body {background-color: #8899A6;}"),
                          # Map Output
                          leafletOutput("leaflet", height=500)
                         ),
@@ -223,7 +223,10 @@ server <- function(input, output) {
             # convert lat and lon for plotting
             plot.data <- bus.data() %>%
                 mutate(lat = as.numeric(lat),
-                       lon = as.numeric(lon)) %>%
+                       lon = as.numeric(lon),
+                       status = ifelse(dly == "false",
+                                       "On-Time",
+                                       "Delayed")) %>%
                 inner_join(color.df, by="rt")
             
             
@@ -242,7 +245,13 @@ server <- function(input, output) {
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
                                   icon=icons,
-                                  popup=~vid,
+                                  popup=~paste0(
+                                      "<h3>Route: ", rt, "</h3>",
+                                      "<h4>Bus ID: ", vid, "<br>",
+                                      "Destination: ", des, "<br>",
+                                      "Status: ", status, "<br>",
+                                      "Speed: ", spd, "</h4>"
+                                  ),
                                   group="Buses",
                                   layerId=~vid) %>%
                 addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
@@ -250,19 +259,18 @@ server <- function(input, output) {
         }
     })
     
-    
     # show bus info when selected
     bus.click <- reactiveVal(NULL)
     
     # observe clicks
     # reference: http://rstudio.github.io/leaflet/shiny.html#inputsevents
     observeEvent(input$leaflet_marker_click, {
-        event <- input$leaflet_marker_click
-        if (is.null(event)) {
+        user.click <- input$leaflet_marker_click
+        if (is.null(user.click)) {
             return()
         }
         
-        bus.click(event)
+        bus.click(user.click)
     })
     
     # format the bus display graphic
