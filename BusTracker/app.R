@@ -147,10 +147,16 @@ ui <- navbarPage(
                          leafletOutput("leaflet", height=500)
                         ),
                      fluidRow(
-                             box(title="Bus Information",
-                                 width=6, uiOutput("display.bus.click")),
-                             box(title="Predicted Arrivals",
-                                 width=6, plotlyOutput("prediction.plot")))
+                         tabsetPanel(type="pills",
+                             tabPanel("Bus Information",
+                                      box(width=12,
+                                          column(4,
+                                                 uiOutput("display.bus.click")),
+                                          column(8,
+                                                 plotlyOutput("prediction.plot")))
+                                     )
+                            )
+                        )
                     )
                  )
              ),
