@@ -173,7 +173,7 @@ server <- function(input, output) {
     })
 
     # raw data table for display
-    output$table <- DT::renderDataTable(bus.data())
+    output$table <- DT::renderDataTable(bus.pred())
     
     # get pattern data for routes
     pattern.data <- reactive({
@@ -336,22 +336,24 @@ server <- function(input, output) {
         }
         rev_date <- c_trans("reverse", "time")
         
-        
         plot <- bus.pred() %>%
             mutate(stpnm = as.factor(stpnm),
-                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M")) %>%
+                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
+                   hour.minute = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
             head(5) %>%
-            ggplot(aes(y=prdtm,
+            arrange(desc(prdtm)) %>%
+            mutate(stpnm = factor(stpnm, unique(stpnm))) %>%
+            ggplot(aes(y=stpnm,
                        x=vid)) +
             geom_point(aes(color=stpnm), size=2, shape="square") +
-            geom_text(aes(label=stpnm), position="dodge", size=3, hjust=0) +
-            scale_y_continuous(trans = rev_date) +
+            geom_text(aes(label=hour.minute), nudge_x=0.25, size=3, hjust=0) +
+            #scale_y_continuous(trans = rev_date) +
             theme_minimal() +
             theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
                   axis.ticks.x=element_blank(),
                   axis.text.x=element_blank(),
                   legend.position="none") +
-            ylab("Arrival Time") +
+            ylab("") +
             xlab("")
     })
 }
