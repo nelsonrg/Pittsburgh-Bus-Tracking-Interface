@@ -150,10 +150,14 @@ ui <- navbarPage(
                          tabsetPanel(type="pills",
                              tabPanel("Bus Information",
                                       box(width=12,
-                                          column(4,
-                                                 uiOutput("display.bus.click")),
-                                          column(8,
-                                                 plotlyOutput("prediction.plot")))
+                                          fluidRow(infoBoxOutput("bus.status.box")),
+                                          fluidRow(
+                                              column(4,
+                                                     uiOutput("display.bus.click")),
+                                              column(8,
+                                                     plotlyOutput("prediction.plot"))
+                                              )
+                                          )
                                      )
                             )
                         )
@@ -282,7 +286,7 @@ server <- function(input, output) {
                                   group="Buses",
                                   layerId=~vid) %>%
                 addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
-                          title="Route", layerId="legend", opacity=1)
+                          title="Route", layerId="legend", opacity=2)
         }
     })
     
@@ -305,7 +309,13 @@ server <- function(input, output) {
     # format the bus display graphic
     output$display.bus.click <- renderUI({
         if (is.null(bus.click())) {
-            return()
+            return(tagList(
+                h2(paste0("Route: ")),
+                h3(paste0("Bus ID: ")),
+                h3(paste0("Destination: ")),
+                h3(paste0("Status: ")),
+                h3(paste0("Current speed: "))
+            ))
         }
         display.data <- bus.data() %>%
             filter(vid == bus.click()$id) %>%
@@ -314,7 +324,7 @@ server <- function(input, output) {
                                    "Delayed"))
         
         tagList(
-            h2(paste0("Route ", display.data$rt)),
+            h2(paste0("Route: ", display.data$rt)),
             h3(paste0("Bus ID: ", display.data$vid)),
             h3(paste0("Destination: ", display.data$des)),
             h3(paste0("Status: ", display.data$status)),
@@ -324,23 +334,9 @@ server <- function(input, output) {
     
     # makes a prediction plot for bus arrivals
     output$prediction.plot <- renderPlotly({
-        if (is.null(bus.click())) {
+        if (is.null(bus.click()) | is.null(bus.pred())) {
             return()
         }
-        
-        # https://stackoverflow.com/a/43626186
-        c_trans <- function(a, b, breaks = b$breaks, format = b$format) {
-            a <- as.trans(a)
-            b <- as.trans(b)
-            
-            name <- paste(a$name, b$name, sep = "-")
-            
-            trans <- function(x) a$trans(b$trans(x))
-            inv <- function(x) b$inverse(a$inverse(x))
-            
-            trans_new(name, trans, inverse = inv, breaks = breaks, format=format)
-        }
-        rev_date <- c_trans("reverse", "time")
         
         plot <- bus.pred() %>%
             mutate(stpnm = as.factor(stpnm),
@@ -361,6 +357,36 @@ server <- function(input, output) {
                   legend.position="none") +
             ylab("") +
             xlab("")
+    })
+    
+    # makes an info box indicating if the bus is delayed or on-time
+    output$bus.status.box <- renderInfoBox({
+        if (is.null(bus.click())) {
+            return(infoBox("Bus Status",
+                           value="Not Selected",
+                           icon=icon("minus"),
+                           color="black"))
+        }
+
+        display.data <- bus.data() %>%
+            filter(vid == bus.click()$id) %>%
+            mutate(status = ifelse(dly == "false",
+                                   "On-Time",
+                                   "Delayed"))
+        
+        if (display.data$status=="On-Time") {
+            icon.type <- "check"
+            color.type <- "green"
+        } else {
+            icon.type <- "exclamation"
+            color.type <- "red"
+        }
+        
+        infoBox(title="Bus Status",
+                value=paste0(display.data$status),
+                icon=icon(icon.type, lib="font-awesome"),
+                color=color.type,
+                fill=TRUE)
     })
 }
 
