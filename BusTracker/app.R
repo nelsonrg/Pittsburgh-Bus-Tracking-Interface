@@ -150,6 +150,7 @@ ui <- navbarPage(
                          tabsetPanel(type="pills",
                              tabPanel("Bus Information",
                                       box(width=12,
+                                          background="navy",
                                           fluidRow(infoBoxOutput("bus.status.box")),
                                           fluidRow(
                                               column(4,
@@ -339,16 +340,16 @@ server <- function(input, output) {
         }
         
         plot <- bus.pred() %>%
-            mutate(stpnm = as.factor(stpnm),
+            mutate(`Stop Name` = as.factor(stpnm),
                    prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
-                   hour.minute = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
+                   `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
             head(5) %>%
             arrange(desc(prdtm)) %>%
-            mutate(stpnm = factor(stpnm, unique(stpnm))) %>%
-            ggplot(aes(y=stpnm,
+            mutate(`Stop Name` = factor(`Stop Name`, unique(`Stop Name`))) %>%
+            ggplot(aes(y=`Stop Name`,
                        x=vid)) +
-            geom_point(aes(color=stpnm), size=2, shape="square") +
-            geom_text(aes(label=hour.minute), nudge_x=0.25, size=3, hjust=0) +
+            geom_point(aes(color=`Arrival Time`), size=2, shape="square") +
+            geom_text(aes(label=`Arrival Time`), nudge_x=0.25, size=3, hjust=0) +
             #scale_y_continuous(trans = rev_date) +
             theme_minimal() +
             theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
@@ -356,7 +357,10 @@ server <- function(input, output) {
                   axis.text.x=element_blank(),
                   legend.position="none") +
             ylab("") +
-            xlab("")
+            xlab("") +
+            ggtitle("Predicted Arrival Times")
+        
+        ggplotly(plot, tooltip=c("Arrival Time", "Stop Name"))
     })
     
     # makes an info box indicating if the bus is delayed or on-time
