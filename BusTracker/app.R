@@ -163,7 +163,8 @@ ui <- navbarPage(
                      selectizeInput(inputId="update.interval",
                                     label="Update Interval",
                                     choices=interval.list,
-                                    selected=interval.list[1])
+                                    selected=interval.list[1]),
+                     uiOutput("last.update.interval")
                  ),
              # map
                  mainPanel(id="mainPanel",
@@ -182,13 +183,13 @@ ui <- navbarPage(
                          tabsetPanel(type="pills",
                              tabPanel("Bus Information",
                                       box(width=12,
-                                          fluidRow(infoBoxOutput("bus.status.box")),
                                           fluidRow(
                                               column(4,
                                                      uiOutput("display.bus.click")),
                                               column(8,
                                                      plotlyOutput("prediction.plot"))
-                                              )
+                                              ),
+                                          fluidRow(infoBoxOutput("bus.status.box"))
                                           )
                                      ),
                              tabPanel("Stop Information",
@@ -213,10 +214,26 @@ ui <- navbarPage(
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
     # set up a reactive for the input interval
     update.interval <- reactive({
         return(as.numeric(input$update.interval) * 1000)
+    })
+    
+    # track when the last update occurred
+    # inspired from: https://github.com/rstudio/shiny-examples/blob/main/086-bus-dashboard/server.R
+    last.update <- reactive({
+        bus.data()
+        Sys.time()
+    })
+    
+    # display for update interval
+    # taken from: https://github.com/rstudio/shiny-examples/blob/main/086-bus-dashboard/server.R
+    output$last.update.interval <- renderUI({
+        invalidateLater(5000, session)
+        p(class="text-muted",
+          "Data refreshed ", round(difftime(Sys.time(), last.update(), units="secs")),
+          " seconds ago.")
     })
     
     # updating vehicle location data
