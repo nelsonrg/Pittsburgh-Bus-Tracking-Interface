@@ -189,12 +189,21 @@ p1 <- results$`bustime-response`$prd
 
 ```{r}
 # get bus predictions
-getPredictionData <- function(vid) {
+getPredictionData <- function(value, type) {
   # add key to request
   url <- paste0(base_url, "/getpredictions?key=", key)
   
+  # vid or stop prediction
+  if (type == "vid") {
+    url <- paste0(url, "&vid=")
+  } else if (type == "stpid") {
+    url <- paste0(url, "&stpid=")
+  } else {
+    return()
+  }
+  
   # request patterns for the route
-  url <- paste0(url, "&vid=", vid)
+  url <- paste0(url, value)
   url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
   
 
@@ -204,7 +213,7 @@ getPredictionData <- function(vid) {
   
   return(results$`bustime-response`$prd)
 }
-pred <- getPredictionData("6011")
+pred <- getPredictionData("6011", type="vid")
 ```
 
 ```{r}
@@ -247,5 +256,21 @@ plot <- pred %>%
   xlab("")
 plot
 #ggplotly(plot)
+```
+
+# Stop information
+
+```{r}
+stop_spdf <- st_read("BusTracker/data/bus_stops.shp")
+```
+
+```{r}
+stop_spdf <- stop_spdf %>%
+  filter(Mode == "Bus")
+```
+
+
+```{r}
+stp.pred <- getPredictionData("2593", type="stpid")
 ```
 

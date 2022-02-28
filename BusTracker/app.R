@@ -9,6 +9,8 @@ library(jsonlite)
 library(leaflet)
 library(plotly)
 library(lubridate)
+library(sf)
+library(sfheaders)
 
 
 # API call setup and definitions
@@ -76,7 +78,10 @@ color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue',
                 'purple', 'darkpurple', 'cadetblue')
 
 # get bus stop info (from static file to avoid excessive API calls)
-#bus.stop.df <- st_read("data/bus_stops.shp")
+bus.stop.df <- st_read("data/bus_stops.shp")
+bus.stop.df <- bus.stop.df %>%
+    filter(Mode == "Bus") %>%
+    arrange(CleverID)
 
 # get route patterns
 getPatternData <- function(route) {
@@ -96,12 +101,21 @@ getPatternData <- function(route) {
 }
 
 # get bus predictions
-getPredictionData <- function(vid) {
+getPredictionData <- function(value, type) {
     # add key to request
     url <- paste0(base_url, "/getpredictions?key=", key)
     
+    # vid or stop prediction
+    if (type == "vid") {
+        url <- paste0(url, "&vid=")
+    } else if (type == "stpid") {
+        url <- paste0(url, "&stpid=")
+    } else {
+        return()
+    }
+    
     # request patterns for the route
-    url <- paste0(url, "&vid=", vid)
+    url <- paste0(url, value)
     url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
     
     
@@ -133,7 +147,12 @@ ui <- navbarPage(
                                     choices=unique(route.data$rtdd),
                                     selected=unique(route.data$rtdd)[1],
                                     multiple=TRUE,
-                                    options=list(maxItems=9))
+                                    options=list(maxItems=9)),
+                     selectizeInput(inputId="stop.select",
+                                 label="Bus Stop ID",
+                                 choices=unique(bus.stop.df$CleverID),
+                                 selected=unique(bus.stop.df$CleverID)[1],
+                                 multiple=FALSE)
                  ),
              # map
                  mainPanel(id="mainPanel",
