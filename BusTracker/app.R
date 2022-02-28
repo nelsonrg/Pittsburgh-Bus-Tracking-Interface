@@ -8,6 +8,7 @@ library(xml2)
 library(jsonlite)
 library(leaflet)
 library(plotly)
+library(lubridate)
 
 
 # API call setup and definitions
@@ -122,7 +123,6 @@ ui <- navbarPage(
         useShinydashboard()
     ),
     
-    
     # bus map
     tabPanel("Live Map",
              # input
@@ -137,20 +137,22 @@ ui <- navbarPage(
                  ),
              # map
                  mainPanel(id="mainPanel",
-                     fluidRow(
-                         width=8,
-                         shinyjs::useShinyjs(),
-                         tags$style(type = "text/css", 
-                                    ".leaflet {height: calc(50vh - 90px) !important;}
-                            body {background-color: #8899A6;}"),
-                         # Map Output
-                         leafletOutput("leaflet", height=500)
+                     fluidRow(id="maprow",
+                              style="margin-right: 10px;",
+                             shinyjs::useShinyjs(),
+                             tags$style(type = "text/css", 
+                                        ".leaflet {height: calc(50vh - 90px) !important;}
+                                body {background-color: #8899A6;}"),
+                             # Map Output
+                             leafletOutput("leaflet", height=500)
                         ),
-                     fluidRow(
+                     br(),
+                     fluidRow(id="inforow",
+                         style="background-color:#f8f8f8;margin-right:10px;",
                          tabsetPanel(type="pills",
                              tabPanel("Bus Information",
                                       box(width=12,
-                                          background="navy",
+                                          #background="navy",
                                           fluidRow(infoBoxOutput("bus.status.box")),
                                           fluidRow(
                                               column(4,
@@ -159,7 +161,11 @@ ui <- navbarPage(
                                                      plotlyOutput("prediction.plot"))
                                               )
                                           )
-                                     )
+                                     ),
+                             tabPanel("Stop Information",
+                                      box(width=12,
+                                          #background="navy"
+                                      )) 
                             )
                         )
                     )
@@ -226,7 +232,10 @@ server <- function(input, output) {
 
         # clear old routes
         leafletProxy("leaflet") %>%
-            clearGroup(group="Routes") 
+            clearGroup(group="Routes") %>%
+            removeControl(layerId="legend") %>%
+            addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
+                      title="Route", layerId="legend", opacity=2)
 
         # add new routes
         for (route in route.table) {
@@ -272,7 +281,6 @@ server <- function(input, output) {
             
             # clear old markers and add new ones
             leafletProxy("leaflet", data=plot.data) %>%
-                removeControl(layerId="legend") %>%
                 clearGroup(group="Buses") %>%
                 addAwesomeMarkers(lng=~lon,
                                   lat=~lat,
@@ -285,9 +293,7 @@ server <- function(input, output) {
                                       "Speed: ", spd, "</h4>"
                                   ),
                                   group="Buses",
-                                  layerId=~vid) %>%
-                addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
-                          title="Route", layerId="legend", opacity=2)
+                                  layerId=~vid)
         }
     })
     
@@ -349,13 +355,16 @@ server <- function(input, output) {
             ggplot(aes(y=`Stop Name`,
                        x=vid)) +
             geom_point(aes(color=`Arrival Time`), size=2, shape="square") +
-            geom_text(aes(label=`Arrival Time`), nudge_x=0.25, size=3, hjust=0) +
+            #geom_point(size=2, shape="square") +
+            geom_text(aes(label=`Arrival Time`), nudge_x=0.2, nudge_y=0.1, size=3, hjust=0) +
             #scale_y_continuous(trans = rev_date) +
             theme_minimal() +
+            # want to add an arrow on the major.x, but plotly will not display it
             theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
                   axis.ticks.x=element_blank(),
                   axis.text.x=element_blank(),
                   legend.position="none") +
+            scale_color_hue() + 
             ylab("") +
             xlab("") +
             ggtitle("Predicted Arrival Times")
@@ -369,7 +378,8 @@ server <- function(input, output) {
             return(infoBox("Bus Status",
                            value="Not Selected",
                            icon=icon("minus"),
-                           color="black"))
+                           color="black",
+                           fill=TRUE))
         }
 
         display.data <- bus.data() %>%

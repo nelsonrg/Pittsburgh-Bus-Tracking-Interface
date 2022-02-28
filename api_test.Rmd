@@ -236,13 +236,16 @@ plot <- pred %>%
   geom_text(aes(label=hour.minute), nudge_x=0.25, size=3, hjust=0) +
   #scale_y_continuous(trans = rev_date) +
   theme_minimal() +
-  theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
+  theme(panel.grid.major.x = element_line(linetype="solid", color="black",
+                                          arrow=grid::arrow(length=unit(0.3, "cm"),
+                                                                        ends="first",
+                                                                        type="closed")),
         axis.ticks.x=element_blank(),
         axis.text.x=element_blank(),
         legend.position="none") +
   ylab("") +
   xlab("")
-#plot
-ggplotly(plot)
+plot
+#ggplotly(plot)
 ```
 
