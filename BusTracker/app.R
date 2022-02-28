@@ -173,7 +173,6 @@ ui <- navbarPage(
                          tabsetPanel(type="pills",
                              tabPanel("Bus Information",
                                       box(width=12,
-                                          #background="navy",
                                           fluidRow(infoBoxOutput("bus.status.box")),
                                           fluidRow(
                                               column(4,
@@ -185,7 +184,10 @@ ui <- navbarPage(
                                      ),
                              tabPanel("Stop Information",
                                       box(width=12,
-                                          #background="navy"
+                                          column(4, 
+                                                 uiOutput("display.stop")),
+                                          column(8,
+                                                 plotlyOutput("stop.prediction.plot"))
                                       )) 
                             )
                         )
@@ -242,7 +244,7 @@ server <- function(input, output) {
     })
     
     # get bus stop prediction data
-    stop.prediction <- reactive({
+    stop.pred <- reactive({
         req(input$stop.select)
         
         getPredictionData(input$stop.select, type="stpid")
@@ -462,6 +464,46 @@ server <- function(input, output) {
                 icon=icon(icon.type, lib="font-awesome"),
                 color=color.type,
                 fill=TRUE)
+    })
+    
+    # format stop display graphic
+    output$display.stop <- renderUI({
+        display.data <- stop.data()
+        
+        tagList(
+            h3(paste0("Stop Name: ", display.data$Stop_name)),
+            h3(paste0("Direction: ", display.data$Direction)),
+            h3(paste0("Routes: ", display.data$Routes_ser)),
+            h3(paste0("Sheltered: ", display.data$has.shelter))
+        )
+    })
+    
+    output$stop.prediction.plot <- renderPlotly({
+        if (is.null(stop.pred())) {
+            return()
+        }
+        
+        plot <- stop.pred() %>%
+            mutate(bus.id = paste0("Bus: ", vid, ", Route: ", rt),
+                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
+                   `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
+            arrange(desc(prdtm)) %>%
+            mutate(bus.id = factor(bus.id, unique(bus.id))) %>%
+            ggplot(aes(y=bus.id,
+                       x=as.factor(rt))) +
+            geom_point(aes(color=rt), size=2, shape="square") +
+            geom_text(aes(label=`Arrival Time`), nudge_x=0.25, nudge_y=0.1, size=3, hjust=0) +
+            theme_minimal() +
+            # want to add an arrow on the major.x, but plotly will not display it
+            theme(panel.grid.major.x = element_line(linetype="solid", color="black"),
+                  panel.grid.minor.x = element_line(linetype="solid", color="black"),
+                  legend.position="none") +
+            scale_color_hue() + 
+            ylab("") +
+            xlab("Route") +
+            ggtitle("Predicted Arrival Times")
+        
+        ggplotly(plot, tooltip=c("Arrival Time", "bus.id", "rt"))
     })
 }
 

@@ -271,6 +271,6 @@ stop_spdf <- stop_spdf %>%
 
 
 ```{r}
-stp.pred <- getPredictionData("2593", type="stpid")
+stp.pred <- getPredictionData("3138", type="stpid")
 ```
 
