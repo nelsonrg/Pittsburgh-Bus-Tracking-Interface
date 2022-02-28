@@ -13,7 +13,7 @@ library(sf)
 library(sfheaders)
 
 
-# API call setup and definitions
+# API call setup and definitions ----
 
 # api key
 key <- readChar("api_key.txt", file.info("api_key.txt")$size)
@@ -133,7 +133,7 @@ interval.values <- c(30, 60, 300, 600)
 interval.names <- c("30 seconds", "1 minute", "5 minutes", "10 minutes")
 interval.list <- setNames(interval.values, interval.names)
 
-# Define UI for application that draws a histogram
+# Define UI for application ----
 ui <- navbarPage(
     # Application title
     "Pittsburgh Bus Tracker",
@@ -213,8 +213,10 @@ ui <- navbarPage(
              )
 )
 
-# Define server logic required to draw a histogram
+# Define server logic ----
 server <- function(input, output, session) {
+    ## handle API update frequency ----
+    
     # set up a reactive for the input interval
     update.interval <- reactive({
         return(as.numeric(input$update.interval) * 1000)
@@ -235,6 +237,8 @@ server <- function(input, output, session) {
           "Data refreshed ", round(difftime(Sys.time(), last.update(), units="secs")),
           " seconds ago.")
     })
+    
+    ## pull bus-specific data ----
     
     # updating vehicle location data
     bus.data <- reactive({
@@ -283,6 +287,8 @@ server <- function(input, output, session) {
         getPredictionData(input$stop.select, type="stpid")
     })
     
+    
+    ## base leaflet ----
     # leaflet map base + bus stops
     output$leaflet <- renderLeaflet({
         leaflet() %>%
@@ -290,6 +296,8 @@ server <- function(input, output, session) {
             setView(-79.9959, 40.4406, 10) %>%
             addLayersControl(overlayGroups=c("Stops", "Buses", "Routes"))
     })
+    
+    ## update leaflet through observables ----
     
     # update route patterns
     observe({
@@ -388,6 +396,8 @@ server <- function(input, output, session) {
                               layerId=~CleverID)
     })
     
+    ## handle user clicks on bus icons ----
+    
     # show bus info when selected
     bus.click <- reactiveVal(NULL)
     bus.pred <- reactiveVal(NULL)
@@ -408,6 +418,8 @@ server <- function(input, output, session) {
         bus.click(user.click)
         bus.pred(getPredictionData(user.click$id, type="vid"))
     })
+    
+    ## create displays (plots, UI, boxes, etc) ----
     
     # format the bus display graphic
     output$display.bus.click <- renderUI({
@@ -511,6 +523,7 @@ server <- function(input, output, session) {
         )
     })
     
+    # make prediction plot for bus arrivals at a specific bus stop
     output$stop.prediction.plot <- renderPlotly({
         if (is.null(stop.pred())) {
             return()
@@ -540,5 +553,5 @@ server <- function(input, output, session) {
     })
 }
 
-# Run the application 
+# Run the application ----
 shinyApp(ui = ui, server = server)
