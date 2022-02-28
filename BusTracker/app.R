@@ -193,12 +193,16 @@ ui <- navbarPage(
                                           )
                                      ),
                              tabPanel("Stop Information",
-                                      box(width=12,
-                                          column(4, 
-                                                 uiOutput("display.stop")),
-                                          column(8,
-                                                 plotlyOutput("stop.prediction.plot"))
-                                      )) 
+                                          box(width=12,
+                                              fluidRow(
+                                                  column(4, 
+                                                         uiOutput("display.stop")),
+                                                  column(8,
+                                                         plotlyOutput("stop.prediction.plot"))
+                                              ),
+                                              fluidRow(infoBoxOutput("next.bus.box"))
+                                          )
+                                      )
                             )
                         )
                     )
@@ -550,6 +554,25 @@ server <- function(input, output, session) {
             ggtitle("Predicted Arrival Times")
         
         ggplotly(plot, tooltip=c("Arrival Time", "bus.id", "rt"))
+    })
+    
+    # info box with next bus arrival
+    output$next.bus.box <- renderInfoBox({
+        if (is.null(stop.pred())) {
+            return(infoBox("Next Bus Arrives in",
+                           value=" Data not found",
+                           icon=icon("minus"),
+                           color="black",
+                           fill=TRUE))
+        }
+        
+        arrival.time <- stop.pred()[1, "prdctdn"]
+        
+        infoBox(title="Next Bus Arrives in",
+                value=paste0(arrival.time, " minutes"),
+                icon=icon("clock"),
+                color="green",
+                fill=TRUE)
     })
 }
 
