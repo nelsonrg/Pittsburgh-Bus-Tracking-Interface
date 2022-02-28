@@ -81,7 +81,9 @@ color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue',
 bus.stop.df <- st_read("data/bus_stops.shp")
 bus.stop.df <- bus.stop.df %>%
     filter(Mode == "Bus") %>%
-    arrange(CleverID)
+    arrange(CleverID) %>%
+    mutate(has.shelter = ifelse(Shelter == "No Shelter",
+                                "No", "Yes"))
 
 # get route patterns
 getPatternData <- function(route) {
@@ -231,6 +233,21 @@ server <- function(input, output) {
         return(pattern)
     })
     
+    # get bus stop info
+    stop.data <- reactive({
+        req(input$stop.select)
+        
+        bus.stop.df %>%
+            filter(CleverID == input$stop.select)
+    })
+    
+    # get bus stop prediction data
+    stop.prediction <- reactive({
+        req(input$stop.select)
+        
+        getPredictionData(input$stop.select, type="stpid")
+    })
+    
     # leaflet map base + bus stops
     output$leaflet <- renderLeaflet({
         leaflet() %>%
@@ -316,6 +333,26 @@ server <- function(input, output) {
         }
     })
     
+    # observe stop selection
+    observe({
+        display.data <- stop.data()
+        
+        # clear old markers and add new ones
+        leafletProxy("leaflet", data=display.data) %>%
+            clearGroup(group="Stops") %>%
+            addAwesomeMarkers(lng=~as.numeric(Longitude),
+                              lat=~as.numeric(Latitude),
+                              icon=icon("home"),
+                              popup=~paste0(
+                                  "<h4>Stop Name: ", Stop_name, "<br><br>",
+                                  "Direction: ", Direction, "<br>",
+                                  "Routes: ", Routes_ser, "<br>",
+                                  "Sheltered: ", has.shelter, "</h4>"
+                              ),
+                              group="Stops",
+                              layerId=~CleverID)
+    })
+    
     # show bus info when selected
     bus.click <- reactiveVal(NULL)
     bus.pred <- reactiveVal(NULL)
@@ -328,8 +365,13 @@ server <- function(input, output) {
             return()
         }
         
+        # don't process if clicked on bus stop
+        if (user.click$id == input$stop.select) {
+            return()
+        }
+        
         bus.click(user.click)
-        bus.pred(getPredictionData(user.click$id))
+        bus.pred(getPredictionData(user.click$id, type="vid"))
     })
     
     # format the bus display graphic
