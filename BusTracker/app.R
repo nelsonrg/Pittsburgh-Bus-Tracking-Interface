@@ -128,6 +128,11 @@ getPredictionData <- function(value, type) {
     return(results$`bustime-response`$prd)
 }
 
+# make update interval list
+interval.values <- c(30, 60, 300, 600)
+interval.names <- c("30 seconds", "1 minute", "5 minutes", "10 minutes")
+interval.list <- setNames(interval.values, interval.names)
+
 # Define UI for application that draws a histogram
 ui <- navbarPage(
     # Application title
@@ -154,7 +159,11 @@ ui <- navbarPage(
                                  label="Bus Stop ID",
                                  choices=unique(bus.stop.df$CleverID),
                                  selected=unique(bus.stop.df$CleverID)[1],
-                                 multiple=FALSE)
+                                 multiple=FALSE),
+                     selectizeInput(inputId="update.interval",
+                                    label="Update Interval",
+                                    choices=interval.list,
+                                    selected=interval.list[1])
                  ),
              # map
                  mainPanel(id="mainPanel",
@@ -205,10 +214,16 @@ ui <- navbarPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+    # set up a reactive for the input interval
+    update.interval <- reactive({
+        return(as.numeric(input$update.interval) * 1000)
+    })
     
     # updating vehicle location data
     bus.data <- reactive({
         req(input$route.select)
+        
+        invalidateLater(update.interval())
         getBusData(value=input$route.select, type="route")
     })
 
@@ -246,6 +261,7 @@ server <- function(input, output) {
     # get bus stop prediction data
     stop.pred <- reactive({
         req(input$stop.select)
+        invalidateLater(update.interval())
         
         getPredictionData(input$stop.select, type="stpid")
     })
