@@ -212,9 +212,16 @@ ui <- navbarPage(
     # top bar menu
     tabPanel("Data Table",
              fluidPage(
-                 wellPanel(DT::dataTableOutput("table"))
+                 wellPanel(
+                     h1("Bus Location Data"),
+                     DT::dataTableOutput("bus.table")
+                 ),
+                 wellPanel(
+                     h1("Bus Prediction at Bus Stop"),
+                     DT::dataTableOutput("stop.table")
                  )
              )
+    )
 )
 
 # Define server logic ----
@@ -253,7 +260,7 @@ server <- function(input, output, session) {
     })
 
     # raw data table for display
-    output$table <- DT::renderDataTable(bus.pred())
+    output$bus.table <- DT::renderDataTable(bus.data(), options=list(scrollX=TRUE))
     
     # get pattern data for routes
     pattern.data <- reactive({
@@ -290,6 +297,9 @@ server <- function(input, output, session) {
         
         getPredictionData(input$stop.select, type="stpid")
     })
+    
+    # raw data table for bus stop display
+    output$stop.table <- DT::renderDataTable(stop.pred(), options=list(scrollX=TRUE))
     
     
     ## base leaflet ----
