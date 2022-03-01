@@ -282,12 +282,12 @@ pat <- getPatternData("1")
 p <- pat %>%
   st_as_sf(coords=c("lon", "lat")) %>%
   summarise(geometry = st_combine(geometry)) %>%
-  st_cast("POLYGON", fill=FALSE)
+  st_cast("MULTILINESTRING")
 ```
 
 ```{r}
 ggplot(p) +
-  geom_sf()
+  geom_sf(fill=NA)
 ```
 
 

@@ -76,7 +76,7 @@ route.data <- getRouteData()
 
 # color info
 color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
-                'purple', 'darkpurple', 'cadetblue')
+                'purple', 'cadetblue', "pink")
 
 # get bus stop info (from static file to avoid excessive API calls)
 bus.stop.df <- st_read("data/bus_stops.shp")
@@ -356,17 +356,25 @@ server <- function(input, output, session) {
             clearGroup(group="Routes") %>%
             removeControl(layerId="legend") %>%
             addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
-                      title="Route", layerId="legend", opacity=2)
+                      title="Route", layerId="legend", opacity=5)
 
         # add new routes
         for (route in route.table) {
-            data.i <- filter(plot.data, rt == route)
+            # simplify the route points into a multi-linestring
+            # this GREATLY increases the leaflet responsiveness
+            data.i <- plot.data %>%
+                filter(rt == route) %>%
+                st_as_sf(coords=c("lon", "lat")) %>%
+                summarise(geometry = st_combine(geometry)) %>%
+                st_cast("MULTILINESTRING")
+            route.color <- color.df %>%
+                filter(rt == route) %>%
+                pull(color)
             leafletProxy("leaflet") %>%
                 addPolylines(data=data.i,
-                             group="Routes",
-                             color=~color,
-                             lat=~lat,
-                             lng=~lon)
+                             color=route.color,
+                             opacity=5,
+                             group="Routes")
         }
     })
     
