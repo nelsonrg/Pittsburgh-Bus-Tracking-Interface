@@ -35,13 +35,13 @@ getBusData <- function(value, type) {
     
     # add either route or vehicle id to request
     if (type == "route") {
-        url <- paste0(url, "&rt=", paste0(value, collapse=","))
+        url <- paste0(url, "&rt=", paste0(value, collapse = ","))
     } else if (type == "vid") {
-        url <- paste0(url, "&vid=", paste0(value, collapse=","))
+        url <- paste0(url, "&vid=", paste0(value, collapse = ","))
     } else {
         stop("Error, request type not recognized.")
     }
-    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    request <- RETRY("GET", URLencode(url), repeated = TRUE)
     content <- content(request, "text")
     
     # parse xml
@@ -51,7 +51,10 @@ getBusData <- function(value, type) {
         unnest_wider(`bustime-response`) %>%
         unnest(cols = names(.)) %>%
         readr::type_convert() %>%
-        if ("msg" %in% names(.)) filter(., msg != "No data found for parameter") else .
+        if ("msg" %in% names(.))
+            filter(., msg != "No data found for parameter")
+    else
+        .
 }
 
 # get the route information when the app launches
@@ -59,7 +62,7 @@ getRouteData <- function() {
     # add key to request
     url <- paste0(base_url, "/getroutes?key=", key)
     
-    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    request <- RETRY("GET", URLencode(url), repeated = TRUE)
     content <- content(request, "text")
     
     # parse xml
@@ -75,8 +78,19 @@ getRouteData <- function() {
 route.data <- getRouteData()
 
 # color info
-color.list <- c('red', 'darkred', 'orange', 'green', 'darkgreen', 'blue', 
-                'purple', 'cadetblue', "pink")
+color.list <-
+    c(
+        'red',
+        'darkred',
+        'orange',
+        'green',
+        'darkgreen',
+        'blue',
+        'purple',
+        'cadetblue',
+        'pink',
+        'black'
+    )
 
 # get bus stop info (from static file to avoid excessive API calls)
 bus.stop.df <- st_read("data/bus_stops.shp")
@@ -93,10 +107,11 @@ getPatternData <- function(route) {
     
     # request patterns for the route
     url <- paste0(url, "&rt=", route)
-    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+    url <-
+        paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
     
     
-    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    request <- RETRY("GET", URLencode(url), repeated = TRUE)
     content <- content(request, "text")
     results <- fromJSON(content)
     
@@ -119,10 +134,11 @@ getPredictionData <- function(value, type) {
     
     # request patterns for the route
     url <- paste0(url, value)
-    url <- paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
+    url <-
+        paste0(url, "&rtpidatafeed=Port%20Authority%20Bus&format=json")
     
     
-    request <- RETRY("GET", URLencode(url), repeated=TRUE)
+    request <- RETRY("GET", URLencode(url), repeated = TRUE)
     content <- content(request, "text")
     results <- fromJSON(content)
     
@@ -131,7 +147,8 @@ getPredictionData <- function(value, type) {
 
 # make update interval list
 interval.values <- c(30, 60, 300, 600)
-interval.names <- c("30 seconds", "1 minute", "5 minutes", "10 minutes")
+interval.names <-
+    c("30 seconds", "1 minute", "5 minutes", "10 minutes")
 interval.list <- setNames(interval.values, interval.names)
 
 # Define UI for application ----
@@ -141,74 +158,122 @@ ui <- navbarPage(
     
     # bring in some nice shiny dashboard elements like box
     # https://stackoverflow.com/a/59527927
-    header = tagList(
-        useShinydashboard()
-    ),
+    header = tagList(useShinydashboard()),
     
-    # bus map
+    # bus map tab
     tabPanel("Live Map",
-             # input
-             sidebarLayout(
-                 sidebarPanel(id="sidebar",
-                     selectizeInput(inputId="route.select",
-                                    label="Route Number",
-                                    choices=unique(route.data$rtdd),
-                                    selected=unique(route.data$rtdd)[1],
-                                    multiple=TRUE,
-                                    options=list(maxItems=9)),
-                     selectizeInput(inputId="stop.select",
-                                 label="Bus Stop ID",
-                                 choices=unique(bus.stop.df$CleverID),
-                                 selected=unique(bus.stop.df$CleverID)[1],
-                                 multiple=FALSE),
-                     selectizeInput(inputId="update.interval",
-                                    label="Update Interval",
-                                    choices=interval.list,
-                                    selected=interval.list[1]),
-                     uiOutput("last.update.interval")
+             fluidRow(
+                 id = "mainRow",
+                 column(
+                     id = "sidebar",
+                     width = 4,
+                     
+                     # info block
+                     box(id="info",
+                         width=12,
+                         title="Welcome to Pittsburgh Bus Tracker!",
+                         p("Stay informed about your favorite bus lines."),
+                         p("Enter up to 10 bus lines to track all currently operating
+                           buses on each line. The position of each bus and their routes
+                           will be updated on the map. Click on the bus for more information!
+                           A pop-up will display specifics about the bus and the area under the map
+                           will populate with the bus's next stops and expected arrival times"),
+                         p("Enter a bus stop ID to get more information about that stop. It will
+                           appear on the map and populate a schedule of the next arriving buses 
+                           (see the 'Stop Information' tab).")
+                         ),
+
+                     # input
+                     box(id="input",
+                         width=12,
+                         
+                     selectizeInput(
+                         inputId = "route.select",
+                         label = "Route Number",
+                         choices = unique(route.data$rtdd),
+                         selected = unique(route.data$rtdd)[1],
+                         multiple = TRUE,
+                         options = list(maxItems = 10)
+                     ),
+                     selectizeInput(
+                         inputId = "stop.select",
+                         label = "Bus Stop ID",
+                         choices = unique(bus.stop.df$CleverID),
+                         selected = unique(bus.stop.df$CleverID)[1],
+                         multiple = FALSE
+                     ),
+                     selectizeInput(
+                         inputId = "update.interval",
+                         label = "Update Interval",
+                         choices = interval.list,
+                         selected = interval.list[1]
+                     ),
+                     uiOutput("last.update.interval")),
+                     
+                     # map info box
+                     box(id="map.info",
+                         width=12,
+                         title="Map Information",
+                         p("The map has three layers, all of which can be toggled 
+                           in the top-right corner of the map."),
+                         p("The first layer shows the selected bus stop - indicated by the blue home icon."),
+                         p("The next layer tracks the current location of all buses on the
+                           selected bus-lines. These are colored by route and have arrows 
+                           indicating their current direction of travel."),
+                         p("The final layer displays the routes of all the selected
+                           bus-lines. Their colors match the bus-markers in the 
+                           previous layer.")
+                     ),
                  ),
-             # map
-                 mainPanel(id="mainPanel",
-                     fluidRow(id="maprow",
-                              style="margin-right: 10px;",
-                             shinyjs::useShinyjs(),
-                             tags$style(type = "text/css", 
-                                        ".leaflet {height: calc(50vh - 90px) !important;}
-                                body {background-color: #8899A6;}"),
-                             # Map Output
-                             leafletOutput("leaflet", height=500)
-                        ),
+                 # map and plots
+                 column(
+                     id = "mainPanel",
+                     width = 8,
+                     fluidRow(
+                         id = "maprow",
+                         style = "margin-right: 10px;",
+                         shinyjs::useShinyjs(),
+                         tags$style(
+                             type = "text/css",
+                             ".leaflet {height: calc(50vh - 90px) !important;}
+                                body {background-color: #8899A6;}"
+                         ),
+                         # Map Output
+                         leafletOutput("leaflet", height =
+                                           500)
+                     ),
                      br(),
-                     fluidRow(id="inforow",
-                         style="background-color:#f8f8f8;margin-right:10px;",
-                         tabsetPanel(type="pills",
+                     fluidRow(
+                         id = "inforow",
+                         style = "background-color:#f8f8f8;margin-right:10px;",
+                         tabsetPanel(
+                             type = "pills",
                              tabPanel("Bus Information",
-                                      box(width=12,
-                                          fluidRow(
-                                              column(4,
-                                                     uiOutput("display.bus.click")),
-                                              column(8,
-                                                     plotlyOutput("prediction.plot"))
-                                              ),
+                                      box(
+                                          width = 12,
+                                          fluidRow(column(4,
+                                                          uiOutput(
+                                                              "display.bus.click"
+                                                          )),
+                                                   column(8,
+                                                          plotlyOutput("prediction.plot"))),
                                           fluidRow(infoBoxOutput("bus.status.box"))
-                                          )
-                                     ),
+                                      )),
                              tabPanel("Stop Information",
-                                          box(width=12,
-                                              fluidRow(
-                                                  column(4, 
-                                                         uiOutput("display.stop")),
-                                                  column(8,
-                                                         plotlyOutput("stop.prediction.plot"))
-                                              ),
-                                              fluidRow(infoBoxOutput("next.bus.box"))
-                                          )
-                                      )
-                            )
-                        )
-                    )
+                                      box(
+                                          width = 12,
+                                          fluidRow(column(4,
+                                                          uiOutput("display.stop")),
+                                                   column(8,
+                                                          plotlyOutput(
+                                                              "stop.prediction.plot"
+                                                          ))),
+                                          fluidRow(infoBoxOutput("next.bus.box"))
+                                      ))
+                         )
+                     )
                  )
-             ),
+             )),
     
     # top bar menu
     tabPanel("Data Table",
@@ -223,8 +288,7 @@ ui <- navbarPage(
                      DT::dataTableOutput("stop.table"),
                      downloadButton("stop.download.button")
                  )
-             )
-    )
+             ))
 )
 
 # Define server logic ----
@@ -247,8 +311,11 @@ server <- function(input, output, session) {
     # taken from: https://github.com/rstudio/shiny-examples/blob/main/086-bus-dashboard/server.R
     output$last.update.interval <- renderUI({
         invalidateLater(5000, session)
-        p(class="text-muted",
-          "Data refreshed ", round(difftime(Sys.time(), last.update(), units="secs")),
+        p(class = "text-muted",
+          "Data refreshed ",
+          round(difftime(
+              Sys.time(), last.update(), units = "secs"
+          )),
           " seconds ago.")
     })
     
@@ -259,19 +326,27 @@ server <- function(input, output, session) {
         req(input$route.select)
         
         invalidateLater(update.interval())
-        getBusData(value=input$route.select, type="route")
+        getBusData(value = input$route.select, type = "route")
     })
-
+    
     # raw data table for display
-    output$bus.table <- DT::renderDataTable(bus.data(), options=list(scrollX=TRUE))
+    output$bus.table <-
+        DT::renderDataTable(bus.data(), options = list(scrollX = TRUE))
     
     # download button for bus location data
     output$bus.download.button <- downloadHandler(
         # from documentation
         filename = function() {
-            fname <- paste0("bus_location_routes_", input$route.select, collapse = "_")
-            fname <- paste(fname, "_", str_replace_all(Sys.time(), ":|\ ", "_"), 
-                           ".csv", sep = "")
+            fname <-
+                paste0("bus_location_routes_",
+                       input$route.select,
+                       collapse = "_")
+            fname <-
+                paste(fname,
+                      "_",
+                      str_replace_all(Sys.time(), ":|\ ", "_"),
+                      ".csv",
+                      sep = "")
         },
         content = function(file) {
             fwrite(bus.data(), file)
@@ -290,7 +365,7 @@ server <- function(input, output, session) {
         for (route in leftover.routes) {
             next.pattern <- getPatternData(route)
             next.pattern$rt <- route
-
+            
             pattern <- rbind(pattern, next.pattern)
         }
         
@@ -311,18 +386,25 @@ server <- function(input, output, session) {
         req(input$stop.select)
         invalidateLater(update.interval())
         
-        getPredictionData(input$stop.select, type="stpid")
+        getPredictionData(input$stop.select, type = "stpid")
     })
     
     # raw data table for bus stop display
-    output$stop.table <- DT::renderDataTable(stop.pred(), options=list(scrollX=TRUE))
+    output$stop.table <-
+        DT::renderDataTable(stop.pred(), options = list(scrollX = TRUE))
     
     # download button for bus stop data
     output$stop.download.button <- downloadHandler(
         # from documentation
         filename = function() {
-            paste("bus_stop_", input$stop.select, "_", str_replace_all(Sys.time(), ":|\ ", "_"), 
-                  ".csv", sep = "")
+            paste(
+                "bus_stop_",
+                input$stop.select,
+                "_",
+                str_replace_all(Sys.time(), ":|\ ", "_"),
+                ".csv",
+                sep = ""
+            )
         },
         content = function(file) {
             write.csv(stop.pred(), file)
@@ -336,7 +418,7 @@ server <- function(input, output, session) {
         leaflet() %>%
             addProviderTiles("OpenStreetMap.HOT") %>%
             setView(-79.9959, 40.4406, 10) %>%
-            addLayersControl(overlayGroups=c("Stops", "Buses", "Routes"))
+            addLayersControl(overlayGroups = c("Stops", "Buses", "Routes"))
     })
     
     ## update leaflet through observables ----
@@ -345,36 +427,45 @@ server <- function(input, output, session) {
     observe({
         # get all routes in data for colors
         route.table <- unique(pattern.data()$rt)
-        color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
-
+        color.df <-
+            tibble(rt = route.table, color = color.list[1:length(rt)])
+        
         # convert lat and lon for plotting
         plot.data <- pattern.data() %>%
-            inner_join(color.df, by="rt")
-
+            inner_join(color.df, by = "rt")
+        
         # clear old routes
         leafletProxy("leaflet") %>%
-            clearGroup(group="Routes") %>%
-            removeControl(layerId="legend") %>%
-            addLegend("bottomright", colors=color.df$color, labels=color.df$rt,
-                      title="Route", layerId="legend", opacity=5)
-
+            clearGroup(group = "Routes") %>%
+            removeControl(layerId = "legend") %>%
+            addLegend(
+                "bottomright",
+                colors = color.df$color,
+                labels = color.df$rt,
+                title = "Route",
+                layerId = "legend",
+                opacity = 5
+            )
+        
         # add new routes
         for (route in route.table) {
             # simplify the route points into a multi-linestring
             # this GREATLY increases the leaflet responsiveness
             data.i <- plot.data %>%
                 filter(rt == route) %>%
-                st_as_sf(coords=c("lon", "lat")) %>%
+                st_as_sf(coords = c("lon", "lat")) %>%
                 summarise(geometry = st_combine(geometry)) %>%
                 st_cast("MULTILINESTRING")
             route.color <- color.df %>%
                 filter(rt == route) %>%
                 pull(color)
             leafletProxy("leaflet") %>%
-                addPolylines(data=data.i,
-                             color=route.color,
-                             opacity=5,
-                             group="Routes")
+                addPolylines(
+                    data = data.i,
+                    color = route.color,
+                    opacity = 5,
+                    group = "Routes"
+                )
         }
     })
     
@@ -384,45 +475,60 @@ server <- function(input, output, session) {
         # if no buses, clear the markers and then exit
         if (!("lat" %in% colnames(bus.data()))) {
             leafletProxy("leaflet") %>%
-                clearGroup(group="busPosition")
+                clearGroup(group = "busPosition")
         } else {
             # get all routes in data for colors
             route.table <- unique(bus.data()$rt)
-            color.df <- tibble(rt=route.table, color=color.list[1:length(rt)])
+            color.df <-
+                tibble(rt = route.table, color = color.list[1:length(rt)])
             
             # convert lat and lon for plotting
             plot.data <- bus.data() %>%
-                mutate(lat = as.numeric(lat),
-                       lon = as.numeric(lon),
-                       status = ifelse(dly == "false",
-                                       "On-Time",
-                                       "Delayed")) %>%
-                inner_join(color.df, by="rt")
+                mutate(
+                    lat = as.numeric(lat),
+                    lon = as.numeric(lon),
+                    status = ifelse(dly == "false",
+                                    "On-Time",
+                                    "Delayed")
+                ) %>%
+                inner_join(color.df, by = "rt")
             
             # define custom icons for the map
             icons <- awesomeIcons(
-                icon="arrow-up", 
-                iconColor="black",
-                library="fa",
-                markerColor=plot.data$color,
-                iconRotate=plot.data$hdg
+                icon = "arrow-up",
+                iconColor = "black",
+                library = "fa",
+                markerColor = plot.data$color,
+                iconRotate = plot.data$hdg
             )
             
             # clear old markers and add new ones
-            leafletProxy("leaflet", data=plot.data) %>%
-                clearGroup(group="Buses") %>%
-                addAwesomeMarkers(lng=~lon,
-                                  lat=~lat,
-                                  icon=icons,
-                                  popup=~paste0(
-                                      "<h3>Route: ", rt, "</h3>",
-                                      "<h4>Bus ID: ", vid, "<br>",
-                                      "Destination: ", des, "<br>",
-                                      "Status: ", status, "<br>",
-                                      "Speed: ", spd, "</h4>"
-                                  ),
-                                  group="Buses",
-                                  layerId=~vid)
+            leafletProxy("leaflet", data = plot.data) %>%
+                clearGroup(group = "Buses") %>%
+                addAwesomeMarkers(
+                    lng =  ~ lon,
+                    lat =  ~ lat,
+                    icon = icons,
+                    popup =  ~ paste0(
+                        "<h3>Route: ",
+                        rt,
+                        "</h3>",
+                        "<h4>Bus ID: ",
+                        vid,
+                        "<br>",
+                        "Destination: ",
+                        des,
+                        "<br>",
+                        "Status: ",
+                        status,
+                        "<br>",
+                        "Speed: ",
+                        spd,
+                        "</h4>"
+                    ),
+                    group = "Buses",
+                    layerId =  ~ vid
+                )
         }
     })
     
@@ -431,19 +537,29 @@ server <- function(input, output, session) {
         display.data <- stop.data()
         
         # clear old markers and add new ones
-        leafletProxy("leaflet", data=display.data) %>%
-            clearGroup(group="Stops") %>%
-            addAwesomeMarkers(lng=~as.numeric(Longitude),
-                              lat=~as.numeric(Latitude),
-                              icon=icon("home"),
-                              popup=~paste0(
-                                  "<h4>Stop Name: ", Stop_name, "<br><br>",
-                                  "Direction: ", Direction, "<br>",
-                                  "Routes: ", Routes_ser, "<br>",
-                                  "Sheltered: ", has.shelter, "</h4>"
-                              ),
-                              group="Stops",
-                              layerId=~CleverID)
+        leafletProxy("leaflet", data = display.data) %>%
+            clearGroup(group = "Stops") %>%
+            addAwesomeMarkers(
+                lng =  ~ as.numeric(Longitude),
+                lat =  ~ as.numeric(Latitude),
+                icon = icon("home"),
+                popup =  ~ paste0(
+                    "<h4>Stop Name: ",
+                    Stop_name,
+                    "<br><br>",
+                    "Direction: ",
+                    Direction,
+                    "<br>",
+                    "Routes: ",
+                    Routes_ser,
+                    "<br>",
+                    "Sheltered: ",
+                    has.shelter,
+                    "</h4>"
+                ),
+                group = "Stops",
+                layerId =  ~ CleverID
+            )
     })
     
     ## handle user clicks on bus icons ----
@@ -466,7 +582,7 @@ server <- function(input, output, session) {
         }
         
         bus.click(user.click)
-        bus.pred(getPredictionData(user.click$id, type="vid"))
+        bus.pred(getPredictionData(user.click$id, type = "vid"))
     })
     
     ## create displays (plots, UI, boxes, etc) ----
@@ -488,13 +604,15 @@ server <- function(input, output, session) {
                                    "On-Time",
                                    "Delayed"))
         
-        tagList(
-            h2(paste0("Route: ", display.data$rt)),
-            h3(paste0("Bus ID: ", display.data$vid)),
-            h3(paste0("Destination: ", display.data$des)),
-            h3(paste0("Status: ", display.data$status)),
-            h3(paste0("Current speed: ", display.data$spd, " mph"))
-        )
+        tagList(h2(paste0("Route: ", display.data$rt)),
+                h3(paste0("Bus ID: ", display.data$vid)),
+                h3(paste0(
+                    "Destination: ", display.data$des
+                )),
+                h3(paste0("Status: ", display.data$status)),
+                h3(paste0(
+                    "Current speed: ", display.data$spd, " mph"
+                )))
     })
     
     # makes a prediction plot for bus arrivals
@@ -504,49 +622,65 @@ server <- function(input, output, session) {
         }
         
         plot <- bus.pred() %>%
-            mutate(`Stop Name` = as.factor(stpnm),
-                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
-                   `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
+            mutate(
+                `Stop Name` = as.factor(stpnm),
+                prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
+                `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))
+            ) %>%
             head(5) %>%
             arrange(desc(prdtm)) %>%
             mutate(`Stop Name` = factor(`Stop Name`, unique(`Stop Name`))) %>%
-            ggplot(aes(y=`Stop Name`,
-                       x=vid)) +
-            geom_point(aes(color=`Arrival Time`), size=2, shape="square") +
+            ggplot(aes(y = `Stop Name`,
+                       x = vid)) +
+            geom_point(aes(color = `Arrival Time`),
+                       size = 2,
+                       shape = "square") +
             #geom_point(size=2, shape="square") +
-            geom_text(aes(label=`Arrival Time`), nudge_x=0.2, nudge_y=0.1, size=3, hjust=0) +
+            geom_text(
+                aes(label = `Arrival Time`),
+                nudge_x = 0.2,
+                nudge_y = 0.1,
+                size = 3,
+                hjust = 0
+            ) +
             #scale_y_continuous(trans = rev_date) +
             theme_minimal() +
             # want to add an arrow on the major.x, but plotly will not display it
-            theme(panel.grid.major.x = element_line(linetype="dashed", color="black"),
-                  axis.ticks.x=element_blank(),
-                  axis.text.x=element_blank(),
-                  legend.position="none") +
-            scale_color_hue() + 
+            theme(
+                panel.grid.major.x = element_line(linetype = "dashed", color = "black"),
+                axis.ticks.x = element_blank(),
+                axis.text.x = element_blank(),
+                legend.position = "none"
+            ) +
+            scale_color_hue() +
             ylab("") +
             xlab("") +
             ggtitle("Predicted Arrival Times")
         
-        ggplotly(plot, tooltip=c("Arrival Time", "Stop Name"))
+        ggplotly(plot, tooltip = c("Arrival Time", "Stop Name"))
     })
     
     # makes an info box indicating if the bus is delayed or on-time
     output$bus.status.box <- renderInfoBox({
         if (is.null(bus.click())) {
-            return(infoBox("Bus Status",
-                           value="Not Selected",
-                           icon=icon("minus"),
-                           color="black",
-                           fill=TRUE))
+            return(
+                infoBox(
+                    "Bus Status",
+                    value = "Not Selected",
+                    icon = icon("minus"),
+                    color = "black",
+                    fill = TRUE
+                )
+            )
         }
-
+        
         display.data <- bus.data() %>%
             filter(vid == bus.click()$id) %>%
             mutate(status = ifelse(dly == "false",
                                    "On-Time",
                                    "Delayed"))
         
-        if (display.data$status=="On-Time") {
+        if (display.data$status == "On-Time") {
             icon.type <- "check"
             color.type <- "green"
         } else {
@@ -554,23 +688,31 @@ server <- function(input, output, session) {
             color.type <- "red"
         }
         
-        infoBox(title="Bus Status",
-                value=paste0(display.data$status),
-                icon=icon(icon.type, lib="font-awesome"),
-                color=color.type,
-                fill=TRUE)
+        infoBox(
+            title = "Bus Status",
+            value = paste0(display.data$status),
+            icon = icon(icon.type, lib = "font-awesome"),
+            color = color.type,
+            fill = TRUE
+        )
     })
     
     # format stop display graphic
     output$display.stop <- renderUI({
         display.data <- stop.data()
         
-        tagList(
-            h3(paste0("Stop Name: ", display.data$Stop_name)),
-            h3(paste0("Direction: ", display.data$Direction)),
-            h3(paste0("Routes: ", display.data$Routes_ser)),
-            h3(paste0("Sheltered: ", display.data$has.shelter))
-        )
+        tagList(h3(paste0(
+            "Stop Name: ", display.data$Stop_name
+        )),
+        h3(paste0(
+            "Direction: ", display.data$Direction
+        )),
+        h3(paste0(
+            "Routes: ", display.data$Routes_ser
+        )),
+        h3(paste0(
+            "Sheltered: ", display.data$has.shelter
+        )))
     })
     
     # make prediction plot for bus arrivals at a specific bus stop
@@ -580,45 +722,62 @@ server <- function(input, output, session) {
         }
         
         plot <- stop.pred() %>%
-            mutate(bus.id = paste0("Bus: ", vid, ", Route: ", rt),
-                   prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
-                   `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))) %>%
+            mutate(
+                bus.id = paste0("Bus: ", vid, ", Route: ", rt),
+                prdtm = parse_date_time(prdtm, "%Y%m%d %h:%M"),
+                `Arrival Time` = sprintf("%02d:%02d", hour(prdtm), minute(prdtm))
+            ) %>%
             arrange(desc(prdtm)) %>%
             mutate(bus.id = factor(bus.id, unique(bus.id))) %>%
-            ggplot(aes(y=bus.id,
-                       x=as.factor(rt))) +
-            geom_point(aes(color=rt), size=2, shape="square") +
-            geom_text(aes(label=`Arrival Time`), nudge_x=0.25, nudge_y=0.1, size=3, hjust=0) +
+            ggplot(aes(y = bus.id,
+                       x = as.factor(rt))) +
+            geom_point(aes(color = rt), size = 2, shape = "square") +
+            geom_text(
+                aes(label = `Arrival Time`),
+                nudge_x = 0.25,
+                nudge_y = 0.1,
+                size = 3,
+                hjust = 0
+            ) +
             theme_minimal() +
             # want to add an arrow on the major.x, but plotly will not display it
-            theme(panel.grid.major.x = element_line(linetype="solid", color="black"),
-                  panel.grid.minor.x = element_line(linetype="solid", color="black"),
-                  legend.position="none") +
-            scale_color_hue() + 
+            theme(
+                panel.grid.major.x = element_line(linetype = "solid", color = "black"),
+                panel.grid.minor.x = element_line(linetype = "solid", color =
+                                                      "black"),
+                legend.position = "none"
+            ) +
+            scale_color_hue() +
             ylab("") +
             xlab("Route") +
             ggtitle("Predicted Arrival Times")
         
-        ggplotly(plot, tooltip=c("Arrival Time", "bus.id", "rt"))
+        ggplotly(plot, tooltip = c("Arrival Time", "bus.id", "rt"))
     })
     
     # info box with next bus arrival
     output$next.bus.box <- renderInfoBox({
         if (is.null(stop.pred())) {
-            return(infoBox("Next Bus Arrives in",
-                           value=" Data not found",
-                           icon=icon("minus"),
-                           color="black",
-                           fill=TRUE))
+            return(
+                infoBox(
+                    "Next Bus Arrives in",
+                    value = " Data not found",
+                    icon = icon("minus"),
+                    color = "black",
+                    fill = TRUE
+                )
+            )
         }
         
         arrival.time <- stop.pred()[1, "prdctdn"]
         
-        infoBox(title="Next Bus Arrives in",
-                value=paste0(arrival.time, " minutes"),
-                icon=icon("clock"),
-                color="green",
-                fill=TRUE)
+        infoBox(
+            title = "Next Bus Arrives in",
+            value = paste0(arrival.time, " minutes"),
+            icon = icon("clock"),
+            color = "green",
+            fill = TRUE
+        )
     })
 }
 
