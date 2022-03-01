@@ -1,0 +1,13 @@
+name: BusTracker
+title: BusTracker
+username:
+account: rgnelson
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5756344
+bundleId: 5629033
+url: https://rgnelson.shinyapps.io/BusTracker/
+when: 1646147211.20712
+lastSyncTime: 1646147211.20712
+asMultiple: FALSE
+asStatic: FALSE
