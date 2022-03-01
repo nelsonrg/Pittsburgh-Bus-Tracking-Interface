@@ -98,7 +98,12 @@ bus.stop.df <- bus.stop.df %>%
     filter(Mode == "Bus") %>%
     arrange(CleverID) %>%
     mutate(has.shelter = ifelse(Shelter == "No Shelter",
-                                "No", "Yes"))
+                                "No", "Yes"),
+           human.readable = paste0("ID: ", CleverID, " | ", Stop_name))
+
+stop.values <- bus.stop.df$CleverID
+stop.names <- bus.stop.df$human.readable
+stop.list <- setNames(stop.values, stop.names)
 
 # get route patterns
 getPatternData <- function(route) {
@@ -147,8 +152,7 @@ getPredictionData <- function(value, type) {
 
 # make update interval list
 interval.values <- c(30, 60, 300, 600)
-interval.names <-
-    c("30 seconds", "1 minute", "5 minutes", "10 minutes")
+interval.names <- c("30 seconds", "1 minute", "5 minutes", "10 minutes")
 interval.list <- setNames(interval.values, interval.names)
 
 # Define UI for application ----
@@ -198,8 +202,8 @@ ui <- navbarPage(
                      selectizeInput(
                          inputId = "stop.select",
                          label = "Bus Stop ID",
-                         choices = unique(bus.stop.df$CleverID),
-                         selected = unique(bus.stop.df$CleverID)[1],
+                         choices = stop.list,
+                         selected = stop.list[1],
                          multiple = FALSE
                      ),
                      selectizeInput(
