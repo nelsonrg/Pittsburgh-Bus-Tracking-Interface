@@ -11,6 +11,7 @@ library(plotly)
 library(lubridate)
 library(sf)
 library(sfheaders)
+library(data.table)
 
 
 # API call setup and definitions ----
@@ -214,11 +215,13 @@ ui <- navbarPage(
              fluidPage(
                  wellPanel(
                      h1("Bus Location Data"),
-                     DT::dataTableOutput("bus.table")
+                     DT::dataTableOutput("bus.table"),
+                     downloadButton("bus.download.button")
                  ),
                  wellPanel(
                      h1("Bus Prediction at Bus Stop"),
-                     DT::dataTableOutput("stop.table")
+                     DT::dataTableOutput("stop.table"),
+                     downloadButton("stop.download.button")
                  )
              )
     )
@@ -262,6 +265,19 @@ server <- function(input, output, session) {
     # raw data table for display
     output$bus.table <- DT::renderDataTable(bus.data(), options=list(scrollX=TRUE))
     
+    # download button for bus location data
+    output$bus.download.button <- downloadHandler(
+        # from documentation
+        filename = function() {
+            fname <- paste0("bus_location_routes_", input$route.select, collapse = "_")
+            fname <- paste(fname, "_", str_replace_all(Sys.time(), ":|\ ", "_"), 
+                           ".csv", sep = "")
+        },
+        content = function(file) {
+            fwrite(bus.data(), file)
+        }
+    )
+    
     # get pattern data for routes
     pattern.data <- reactive({
         req(input$route.select)
@@ -300,6 +316,18 @@ server <- function(input, output, session) {
     
     # raw data table for bus stop display
     output$stop.table <- DT::renderDataTable(stop.pred(), options=list(scrollX=TRUE))
+    
+    # download button for bus stop data
+    output$stop.download.button <- downloadHandler(
+        # from documentation
+        filename = function() {
+            paste("bus_stop_", input$stop.select, "_", str_replace_all(Sys.time(), ":|\ ", "_"), 
+                  ".csv", sep = "")
+        },
+        content = function(file) {
+            write.csv(stop.pred(), file)
+        }
+    )
     
     
     ## base leaflet ----
