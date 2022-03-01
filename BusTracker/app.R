@@ -779,6 +779,10 @@ server <- function(input, output, session) {
         
         arrival.time <- stop.pred()[1, "prdctdn"]
         
+        if (arrival.time == "DUE") {
+            arrival.time <- 0
+        }
+        
         infoBox(
             title = "Next Bus Arrives in",
             value = paste0(arrival.time, " minutes"),
