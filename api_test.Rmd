@@ -271,6 +271,23 @@ stop_spdf <- stop_spdf %>%
 
 
 ```{r}
-stp.pred <- getPredictionData("3138", type="stpid")
+stp.pred <- getPredictionData("3137", type="stpid")
 ```
+
+```{r}
+pat <- getPatternData("1")
+```
+
+```{r}
+p <- pat %>%
+  st_as_sf(coords=c("lon", "lat")) %>%
+  summarise(geometry = st_combine(geometry)) %>%
+  st_cast("POLYGON", fill=FALSE)
+```
+
+```{r}
+ggplot(p) +
+  geom_sf()
+```
+
 

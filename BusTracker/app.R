@@ -391,13 +391,13 @@ server <- function(input, output, session) {
                                        "Delayed")) %>%
                 inner_join(color.df, by="rt")
             
-            
             # define custom icons for the map
             icons <- awesomeIcons(
-                icon="bus", 
+                icon="arrow-up", 
                 iconColor="black",
                 library="fa",
-                markerColor=plot.data$color
+                markerColor=plot.data$color,
+                iconRotate=plot.data$hdg
             )
             
             # clear old markers and add new ones
