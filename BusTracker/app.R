@@ -275,7 +275,11 @@ ui <- navbarPage(
                                           fluidRow(infoBoxOutput("next.bus.box"))
                                       ))
                          )
-                     )
+                     ),
+                     hr(),
+                     p("Author: Bobby Nelson"),
+                     p("Updated: 3/1/2022"),
+                     p("Data provided by Port Authority TrueTime")
                  )
              )),
     
