@@ -670,16 +670,15 @@ server <- function(input, output, session) {
     
     # makes an info box indicating if the bus is delayed or on-time
     output$bus.status.box <- renderInfoBox({
+        empty.box <- infoBox(
+            "Bus Status",
+            value = "Not Selected",
+            icon = icon("minus"),
+            color = "black",
+            fill = TRUE
+        )
         if (is.null(bus.click())) {
-            return(
-                infoBox(
-                    "Bus Status",
-                    value = "Not Selected",
-                    icon = icon("minus"),
-                    color = "black",
-                    fill = TRUE
-                )
-            )
+            return(empty.box)
         }
         
         display.data <- bus.data() %>%
@@ -687,6 +686,10 @@ server <- function(input, output, session) {
             mutate(status = ifelse(dly == "false",
                                    "On-Time",
                                    "Delayed"))
+        
+        if (NROW(display.data) < 1) {
+            return(empty.box)
+        }
         
         if (display.data$status == "On-Time") {
             icon.type <- "check"
