@@ -1,5 +1,3 @@
-# Final Project
-
 ## Title: Pittsburgh Bus Tracking Application
 ### Author: Bobby Nelson
 ### Date: 3/4/2022
